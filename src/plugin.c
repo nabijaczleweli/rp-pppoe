@@ -325,7 +325,10 @@ PPPOEDisconnectDevice(void)
 	return;
     }
     close(conn->sessionSocket);
-    close(conn->discoverySocket);
+    if (conn->discoverySocket >= 0) {
+	sendPADT(conn, NULL);
+	close(conn->discoverySocket);
+    }
 
     /* Do NOT free conn; if pppd persist is on, we'll need it again */
 }

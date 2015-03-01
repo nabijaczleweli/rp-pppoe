@@ -320,7 +320,7 @@ PPPOEDisconnectDevice(void)
     memcpy(sp.sa_addr.pppoe.dev, conn->ifName, strlen(conn->ifName));
     memcpy(sp.sa_addr.pppoe.remote, conn->peerEth, ETH_ALEN);
     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
-		sizeof(struct sockaddr_pppox)) < 0) {
+		sizeof(struct sockaddr_pppox)) < 0 && errno != EALREADY) {
 	fatal("Failed to disconnect PPPoE socket: %d %m", errno);
 	return;
     }

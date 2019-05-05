@@ -163,7 +163,7 @@ PPPOEConnectDevice(void)
 	error("Can't get MTU for %s: %m", conn->ifName);
 	return -1;
     }
-    strncpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
+    strlcpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
     if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
 	error("Can't get MTU for %s: %m", conn->ifName);
 	close(s);
@@ -418,7 +418,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
     if (r) {
 	seen_devnam[seen_idx] = 1;
 	if (doit) {
-	    strncpy(devnam, cmd, sizeof(devnam));
+	    strlcpy(devnam, cmd, sizeof(devnam));
 	    if (the_channel != &pppoe_channel) {
 
 		the_channel = &pppoe_channel;

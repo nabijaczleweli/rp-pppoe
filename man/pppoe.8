@@ -1,5 +1,5 @@
-.\" $Id: pppoe.8,v 1.8 2000/01/10 22:50:27 dfs Exp $ "
-.TH PPPOE 8 "4 December 1999"
+.\" $Id: pppoe.8,v 1.3 2001/03/16 20:38:28 dfs Exp $ 
+.TH PPPOE 8 "3 July 2000"
 .UC 4
 .SH NAME
 pppoe \- user-space PPPoE client.
@@ -83,7 +83,61 @@ use this option, then you \fImust\fR use the \fBsync\fR option with
 it greatly reduces the CPU overhead of \fBpppoe\fR.  However, it
 MAY be unreliable on slow machines -- there is a race condition between
 pppd writing data and pppoe reading it.  For this reason, the default
-setting is asynchronous.
+setting is asynchronous.  If you encounter bugs or crashes with Synchronous
+PPP, turn it off -- don't e-mail me for support!
+
+.TP
+.B \-m \fIMSS\fR
+Causes \fBpppoe\fR to \fIclamp\fR the TCP maximum segment size at the specified
+value.  Because of PPPoE overhead, the maximum segment size for PPPoE is
+smaller than for normal Ethernet encapsulation.  This could cause problems
+for machines on a LAN behind a gateway using PPPoE.  If you have a LAN
+behind a gateway, and the gateway connects to the Internet using PPPoE,
+you are strongly recommended to use a \fB\-m 1412\fR option.  This avoids
+having to set the MTU on all the hosts on the LAN.
+
+.TP
+.B \-p \fIfile\fR
+Causes \fBpppoe\fR to write its process-ID to the specified file.  This
+can be used to locate and kill \fBpppoe\fR processes.
+
+.TP
+.B \-e \fIsess:mac\fR
+Causes \fBpppoe\fR to skip the discovery phase and move directly to the
+session phase.  The session is given by \fIsess\fR and the MAC address of
+the peer by \fImac\fR.  This mode is \fInot\fR meant for normal use; it
+is designed only for \fBpppoe-server\fR(8).
+
+.TP
+.B \-n
+Causes \fBpppoe\fR not to open a discovery socket.  This mode is
+\fInot\fR meant for normal use; it is designed only for
+\fBpppoe-server\fR(8).
+
+.TP
+.B \-k
+Causes \fBpppoe\fR to terminate an existing session by sending a PADT frame,
+and then exit.  You must use the \fB\-e\fR option in conjunction with this
+option to specify the session to kill.  This may be useful for killing
+sessions when a buggy peer does not realize the session has ended.
+
+.TP
+.B \-d
+Causes \fBpppoe\fR to perform discovery and then exit, after printing
+session information to standard output.  The session information is printed
+in exactly the format expected by the \fB\-e\fR option.  This option lets
+you initiate a PPPoE discovery, perform some other work, and then start
+the actual PPP session.  \fIBe careful\fR; if you use this option in a loop,
+you can create many sessions, which may annoy your peer.
+
+.TP
+.B \-f disc:sess
+The \fB\-f\fR option sets the Ethernet frame types for PPPoE discovery
+and session frames.  The types are specified as hexadecimal numbers
+separated by a colon.  Standard PPPoE uses frame types 8863:8864.
+\fIYou should not use this option\fR unless you are absolutely sure
+the peer you are dealing with uses non-standard frame types.  If your
+ISP uses non-standard frame types, complain!
 
 .TP
 .B \-h
@@ -115,7 +169,7 @@ the PPPoE overhead plus two bytes of overhead for the encapsulated PPP
 frame mean that the MTU of the PPP interface is at most 1492 bytes.
 This causes \fIall kinds of problems\fR if you are using a Linux machine
 as a firewall and interfaces behind the firewall have an MTU greater than
-1492.  In fact, to be safe, I recommend setting the MTU of machiens
+1492.  In fact, to be safe, I recommend setting the MTU of machines
 behind the firewall to 1412, to allow for worst-case TCP and IP options
 in their respective headers.
 
@@ -175,8 +229,8 @@ messages for complete diagnosis.
 \fBpppoe\fR was written by David F. Skoll <dfs@roaringpenguin.com>,
 with much inspiration from an earlier version by Luke Stras.
 
-The \fBpppoe\fR home page is \fIhttp://www.roaringpenguin.com/pppoe.html\fR.
+The \fBpppoe\fR home page is \fIhttp://www.roaringpenguin.com/pppoe/\fR.
 
 .SH SEE ALSO
-pppd(8)
+adsl-start(8), adsl-stop(8), adsl-connect(8), pppd(8), pppoe.conf(5), adsl-setup(8), adsl-status(8), pppoe-sniff(8), pppoe-server(8), pppoe-relay(8)
 

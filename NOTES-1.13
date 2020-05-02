@@ -1,67 +1,68 @@
 Groups are a single multi-commit unit.
-?s are of questionable relevancy.
+?s are of questionable relevancy, may be removed entirely.
 d is for pppoe-discovery (does Dianne want it in her tree at all?).
 p is for packet printer
 - is additional comments at EOL.
+Comments after ^ are after reading more and dropping/SHA after applying.
 
 8:    git format-patch --start-number 1 9c0f3f00059b45e62849fe5a7a3164bbe6eca00e~1..9c0f3f00059b45e62849fe5a7a3164bbe6eca00e
 9:    git format-patch --start-number 2 e5b7cafa28aeba66499fa26b286192529e5fde15~1..e5b7cafa28aeba66499fa26b286192529e5fde15
+^ dropped: these two touch the error reporting when setting MTU, and make a failure to do so a hard error,
+  whereas the code as-is treats it as just a warning, with which I agree more
 
-10: ? git format-patch --start-number 3 b289ec4c473338c67bce0cb5712616da2d2493e8~1..b289ec4c473338c67bce0cb5712616da2d2493e8
+11:   git format-patch --start-number 3 5d490c4106f4a34864c980b925e183cf3bf575e2~1..5d490c4106f4a34864c980b925e183cf3bf575e2
 
-11:   git format-patch --start-number 4 5d490c4106f4a34864c980b925e183cf3bf575e2~1..5d490c4106f4a34864c980b925e183cf3bf575e2
+12:   git format-patch --start-number 4 e9925858258e464095e7ee9d21a1facf789e9b38~1..e9925858258e464095e7ee9d21a1facf789e9b38
 
-12:   git format-patch --start-number 5 e9925858258e464095e7ee9d21a1facf789e9b38~1..e9925858258e464095e7ee9d21a1facf789e9b38
+13: ? git format-patch --start-number 5 93707a531320fbf398fdb5ffa69a86af092c798c~1..93707a531320fbf398fdb5ffa69a86af092c798c
 
-13: ? git format-patch --start-number 6 93707a531320fbf398fdb5ffa69a86af092c798c~1..93707a531320fbf398fdb5ffa69a86af092c798c
+15:   git format-patch --start-number 6 6e6bb3246106e680463c106d1ee6b773fc4f9c5a~1..6e6bb3246106e680463c106d1ee6b773fc4f9c5a
 
-15:   git format-patch --start-number 7 6e6bb3246106e680463c106d1ee6b773fc4f9c5a~1..6e6bb3246106e680463c106d1ee6b773fc4f9c5a
+16:   git format-patch --start-number 7 4ed9d22c884b6266f30d308c108f214a0815b812~1..4ed9d22c884b6266f30d308c108f214a0815b812
 
-16:   git format-patch --start-number 8 4ed9d22c884b6266f30d308c108f214a0815b812~1..4ed9d22c884b6266f30d308c108f214a0815b812
+17: - git format-patch --start-number 8 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be~1..322e51c6ca0f3c5f897d3264cd4d3c1cc74842be -- PLUGIN_PATH not respected?
 
-17: - git format-patch --start-number 9 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be~1..322e51c6ca0f3c5f897d3264cd4d3c1cc74842be -- PLUGIN_PATH not respected?
+19:   git format-patch --start-number 9 71373d6f2d74ebb13d6697cb1cc1112033a71fc9~1..71373d6f2d74ebb13d6697cb1cc1112033a71fc9
 
-19:   git format-patch --start-number 10 71373d6f2d74ebb13d6697cb1cc1112033a71fc9~1..71373d6f2d74ebb13d6697cb1cc1112033a71fc9
+20: ? git format-patch --start-number 10 43c9218605e0d7302cc614063de8e7078acabe46~1..43c9218605e0d7302cc614063de8e7078acabe46
 
-20: ? git format-patch --start-number 11 43c9218605e0d7302cc614063de8e7078acabe46~1..43c9218605e0d7302cc614063de8e7078acabe46
+21:   git format-patch --start-number 11 ccc4c4604dd9e7316fe734b41b7327aa5906de3e~1..ccc4c4604dd9e7316fe734b41b7327aa5906de3e
 
-21:   git format-patch --start-number 12 ccc4c4604dd9e7316fe734b41b7327aa5906de3e~1..ccc4c4604dd9e7316fe734b41b7327aa5906de3e
+23: dpgit format-patch --start-number 12 427e3d851c86e35655e14f1dfa9c831a8fab94d9~1..427e3d851c86e35655e14f1dfa9c831a8fab94d9
 
-23: dpgit format-patch --start-number 13 427e3d851c86e35655e14f1dfa9c831a8fab94d9~1..427e3d851c86e35655e14f1dfa9c831a8fab94d9
+28: dpgit format-patch --start-number 13 fd1dcdf758418f040da3ed801ab001b5e46854e7~1..fd1dcdf758418f040da3ed801ab001b5e46854e7 -- interacts with dianne's code somehow?
 
-28: dpgit format-patch --start-number 14 fd1dcdf758418f040da3ed801ab001b5e46854e7~1..fd1dcdf758418f040da3ed801ab001b5e46854e7 -- interacts with dianne's code somehow?
+29:  pgit format-patch --start-number 14 f5dda0cfc220c4b52e26144096d729e27b30f0f7~1..f5dda0cfc220c4b52e26144096d729e27b30f0f7
 
-29:  pgit format-patch --start-number 15 f5dda0cfc220c4b52e26144096d729e27b30f0f7~1..f5dda0cfc220c4b52e26144096d729e27b30f0f7
+30:   git format-patch --start-number 15 1817d83e51a411044e730ba89ebdb0480e1c8cd4~1..1817d83e51a411044e730ba89ebdb0480e1c8cd4
 
-30:   git format-patch --start-number 16 1817d83e51a411044e730ba89ebdb0480e1c8cd4~1..1817d83e51a411044e730ba89ebdb0480e1c8cd4
+31:   git format-patch --start-number 16 219aac3b53d0827549377f1bfe22853ee52d4405~1..219aac3b53d0827549377f1bfe22853ee52d4405
 
-31:   git format-patch --start-number 17 219aac3b53d0827549377f1bfe22853ee52d4405~1..219aac3b53d0827549377f1bfe22853ee52d4405
+32: ? git format-patch --start-number 17 cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb~1..cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb
 
-32: ? git format-patch --start-number 18 cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb~1..cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb
+34: d git format-patch --start-number 18 b7b97dea6eb042fae0dfaca39cbb190411e5fd31~1..b7b97dea6eb042fae0dfaca39cbb190411e5fd31
 
-34: d git format-patch --start-number 19 b7b97dea6eb042fae0dfaca39cbb190411e5fd31~1..b7b97dea6eb042fae0dfaca39cbb190411e5fd31
+35: ? git format-patch --start-number 19 50a2997b256e0e0ef7a46fae133f56f60fce539c~1..50a2997b256e0e0ef7a46fae133f56f60fce539c
 
-35: ? git format-patch --start-number 20 50a2997b256e0e0ef7a46fae133f56f60fce539c~1..50a2997b256e0e0ef7a46fae133f56f60fce539c
+37: d git format-patch --start-number 20 ac682de4ec32d4cc8859b31366023e28012e23e6~1..ac682de4ec32d4cc8859b31366023e28012e23e6
 
-37: d git format-patch --start-number 21 ac682de4ec32d4cc8859b31366023e28012e23e6~1..ac682de4ec32d4cc8859b31366023e28012e23e6
+38: d git format-patch --start-number 21 bb65ff8830596e22d5f6c4c66274ddd726545c85~1..bb65ff8830596e22d5f6c4c66274ddd726545c85
 
-38: d git format-patch --start-number 22 bb65ff8830596e22d5f6c4c66274ddd726545c85~1..bb65ff8830596e22d5f6c4c66274ddd726545c85
+39: d git format-patch --start-number 22 8e62a6d886edeecc52391db3216c026db6c0e7d9~1..8e62a6d886edeecc52391db3216c026db6c0e7d9
 
-39: d git format-patch --start-number 23 8e62a6d886edeecc52391db3216c026db6c0e7d9~1..8e62a6d886edeecc52391db3216c026db6c0e7d9
+40: d git format-patch --start-number 23 70a8ad3dbd8af3b52d624550fc3343d1849c3f76~1..70a8ad3dbd8af3b52d624550fc3343d1849c3f76
 
-40: d git format-patch --start-number 24 70a8ad3dbd8af3b52d624550fc3343d1849c3f76~1..70a8ad3dbd8af3b52d624550fc3343d1849c3f76
+43:   git format-patch --start-number 24 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
+44:   git format-patch --start-number 25 44012ae879e809ad1f75e6c69712619cefaa4add~1..44012ae879e809ad1f75e6c69712619cefaa4add
 
-43:   git format-patch --start-number 25 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
-44:   git format-patch --start-number 26 44012ae879e809ad1f75e6c69712619cefaa4add~1..44012ae879e809ad1f75e6c69712619cefaa4add
+45: d git format-patch --start-number 26 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
 
-45: d git format-patch --start-number 27 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
+46:   git format-patch --start-number 27 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
 
-46:   git format-patch --start-number 28 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
+47:   git format-patch --start-number 28 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
 
-47:   git format-patch --start-number 29 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
+48: d git format-patch --start-number 29 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
 
-48: d git format-patch --start-number 30 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
+49:   git format-patch --start-number 30 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
 
-49:   git format-patch --start-number 31 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
-
-50:   git format-patch --start-number 32 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9
+50:   git format-patch --start-number 31 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9

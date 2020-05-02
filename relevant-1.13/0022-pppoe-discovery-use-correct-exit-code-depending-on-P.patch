@@ -1,0 +1,35 @@
+From bb65ff8830596e22d5f6c4c66274ddd726545c85 Mon Sep 17 00:00:00 2001
+From: Martin Schiller <ms@dev.tdt.de>
+Date: Thu, 7 Dec 2017 08:55:53 +0100
+Subject: [PATCH] pppoe-discovery: use correct exit code depending on PADO
+ replies.
+
+This makes it possible to evaluate the exit code of the tool,
+e.g. if you just want to know if there is an access concentrator
+or not.
+
+Signed-off-by: Martin Schiller <ms@dev.tdt.de>
+---
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index 3c19dfa..784bd71 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -698,7 +698,11 @@ int main(int argc, char *argv[])
+     conn->printACNames = 1;
+ 
+     discovery(conn);
+-    exit(0);
++
++    if (!conn->numPADOs)
++	exit(1);
++    else
++	exit(0);
+ }
+ 
+ void rp_fatal(char const *str)
+-- 
+2.20.1
+

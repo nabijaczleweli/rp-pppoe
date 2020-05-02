@@ -1,0 +1,94 @@
+From 70a8ad3dbd8af3b52d624550fc3343d1849c3f76 Mon Sep 17 00:00:00 2001
+From: Martin Schiller <ms@dev.tdt.de>
+Date: Thu, 7 Dec 2017 09:30:40 +0100
+Subject: [PATCH] pppoe-discovery: add options to tune discovery timeout and
+ attempts
+
+Signed-off-by: Martin Schiller <ms@dev.tdt.de>
+---
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 28 ++++++++++++++++++++++---
+ pppd/plugins/rp-pppoe/pppoe.h           |  1 +
+ 2 files changed, 26 insertions(+), 3 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index 7f3659e..bce71fc 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -635,14 +635,14 @@ void
+ discovery(PPPoEConnection *conn)
+ {
+     int padiAttempts = 0;
+-    int timeout = PADI_TIMEOUT;
++    int timeout = conn->discoveryTimeout;
+ 
+     conn->discoverySocket =
+ 	openInterface(conn->ifName, Eth_PPPOE_Discovery, conn->myEth);
+ 
+     do {
+ 	padiAttempts++;
+-	if (padiAttempts > MAX_PADI_ATTEMPTS) {
++	if (padiAttempts > conn->discoveryAttempts) {
+ 	    fprintf(stderr, "Timeout waiting for PADO packets\n");
+ 	    close(conn->discoverySocket);
+ 	    conn->discoverySocket = -1;
+@@ -666,8 +666,10 @@ int main(int argc, char *argv[])
+     memset(conn, 0, sizeof(PPPoEConnection));
+ 
+     conn->printACNames = 1;
++    conn->discoveryTimeout = PADI_TIMEOUT;
++    conn->discoveryAttempts = MAX_PADI_ATTEMPTS;
+ 
+-    while ((opt = getopt(argc, argv, "I:D:VUQS:C:h")) > 0) {
++    while ((opt = getopt(argc, argv, "I:D:VUQS:C:t:a:h")) > 0) {
+ 	switch(opt) {
+ 	case 'S':
+ 	    conn->serviceName = xstrdup(optarg);
+@@ -675,6 +677,24 @@ int main(int argc, char *argv[])
+ 	case 'C':
+ 	    conn->acName = xstrdup(optarg);
+ 	    break;
++	case 't':
++	    if (sscanf(optarg, "%d", &conn->discoveryTimeout) != 1) {
++		fprintf(stderr, "Illegal argument to -t: Should be -t timeout\n");
++		exit(EXIT_FAILURE);
++	    }
++	    if (conn->discoveryTimeout < 1) {
++		conn->discoveryTimeout = 1;
++	    }
++	    break;
++	case 'a':
++	    if (sscanf(optarg, "%d", &conn->discoveryAttempts) != 1) {
++		fprintf(stderr, "Illegal argument to -a: Should be -a attempts\n");
++		exit(EXIT_FAILURE);
++	    }
++	    if (conn->discoveryAttempts < 1) {
++		conn->discoveryAttempts = 1;
++	    }
++	    break;
+ 	case 'U':
+ 	    conn->useHostUniq = 1;
+ 	    break;
+@@ -750,6 +770,8 @@ void usage(void)
+     fprintf(stderr, "   -I if_name     -- Specify interface (default eth0)\n");
+     fprintf(stderr, "   -D filename    -- Log debugging information in filename.\n");
+     fprintf(stderr,
++	    "   -t timeout     -- Initial timeout for discovery packets in seconds\n"
++	    "   -a attempts    -- Number of discovery attempts\n"
+ 	    "   -V             -- Print version and exit.\n"
+ 	    "   -Q             -- Quit Mode: Do not print access concentrator names\n"
+ 	    "   -S name        -- Set desired service name.\n"
+diff --git a/pppd/plugins/rp-pppoe/pppoe.h b/pppd/plugins/rp-pppoe/pppoe.h
+index c4aaa6e..813dcf3 100644
+--- a/pppd/plugins/rp-pppoe/pppoe.h
++++ b/pppd/plugins/rp-pppoe/pppoe.h
+@@ -245,6 +245,7 @@ typedef struct PPPoEConnectionStruct {
+     int error;			/* Error packet received */
+     int debug;			/* Set to log packets sent and received */
+     int discoveryTimeout;       /* Timeout for discovery packets */
++    int discoveryAttempts;      /* Number of discovery attempts */
+     int seenMaxPayload;
+     int mtu;			/* Stored MTU */
+     int mru;			/* Stored MRU */
+-- 
+2.20.1
+

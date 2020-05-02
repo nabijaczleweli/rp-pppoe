@@ -1,0 +1,70 @@
+From ccc4c4604dd9e7316fe734b41b7327aa5906de3e Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Mon, 29 May 2006 23:29:16 +0000
+Subject: [PATCH] Remove name checks in the rp-pppoe plugin PPPoEDevnameHook
+ function. Based on a patch from Alin Nastac.  I also made the function only
+ set the device name and initialize the channel if `doit' is set.
+
+---
+ pppd/plugins/rp-pppoe/plugin.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index 1e9bd83..b84a6af 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -22,7 +22,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: plugin.c,v 1.14 2005/08/25 10:51:27 paulus Exp $";
++"$Id: plugin.c,v 1.15 2006/05/29 23:29:16 paulus Exp $";
+ 
+ #define _GNU_SOURCE 1
+ #include "pppoe.h"
+@@ -253,16 +253,14 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+     int fd;
+     struct ifreq ifr;
+ 
+-    /* Only do it if name is "ethXXX", "nasXXX", "tapXXX" or "nic-XXXX.
+-       In latter case strip off the "nic-" */
+-    /* Thanks to Russ Couturier for this fix */
++    /*
++     * Take any otherwise-unrecognized option as a possible device name,
++     * and test if it is the name of a network interface with a
++     * hardware address whose sa_family is ARPHRD_ETHER.
++     */
+     if (strlen(cmd) > 4 && !strncmp(cmd, "nic-", 4)) {
+ 	/* Strip off "nic-" */
+ 	cmd += 4;
+-    } else if (strlen(cmd) < 4
+-	       || (strncmp(cmd, "eth", 3) && strncmp(cmd, "nas", 3)
+-		   && strncmp(cmd, "tap", 3) && strncmp(cmd, "br", 2))) {
+-	return 0;
+     }
+ 
+     /* Open a socket */
+@@ -280,8 +278,9 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 		r = 0;
+ 	    } else {
+ 		if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
+-		    error("Interface %s not Ethernet", cmd);
+-		    r=0;
++		    if (doit)
++			error("Interface %s not Ethernet", cmd);
++		    r = 0;
+ 		}
+ 	    }
+ 	}
+@@ -289,7 +288,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 
+     /* Close socket */
+     close(fd);
+-    if (r) {
++    if (r && doit) {
+ 	strncpy(devnam, cmd, sizeof(devnam));
+ 	if (the_channel != &pppoe_channel) {
+ 
+-- 
+2.20.1
+

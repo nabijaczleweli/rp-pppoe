@@ -1,0 +1,29 @@
+From 860a540431d92632fc19e7f6cf7b06c92fe1ee1e Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Mon, 18 Aug 2008 22:30:27 +1000
+Subject: [PATCH] Fix build error in the rp-pppoe plugin
+
+We have the wrong -I path so we weren't getting the if_ppp.h from
+include/linux.
+
+Signed-off-by: Paul Mackerras <paulus@samba.org>
+---
+ pppd/plugins/rp-pppoe/Makefile.linux | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index 1927263..5d7a271 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -26,7 +26,7 @@ INSTALL	= install
+ RP_VERSION=3.8p
+ 
+ COPTS=-O2 -g
+-CFLAGS=$(COPTS) -I../../../include/linux '-DRP_VERSION="$(RP_VERSION)"'
++CFLAGS=$(COPTS) -I../../../include '-DRP_VERSION="$(RP_VERSION)"'
+ all: rp-pppoe.so pppoe-discovery
+ 
+ pppoe-discovery: pppoe-discovery.o debug.o
+-- 
+2.20.1
+

@@ -1,0 +1,3325 @@
+From 427e3d851c86e35655e14f1dfa9c831a8fab94d9 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Mon, 9 Jun 2008 08:34:23 +0000
+Subject: [PATCH] Updates and fixes for the rp-pppoe plugin
+
+1) Imported the good bits from the rp-pppoe-3.8 release.  This plugin
+   was previously based on the 3.3 release.
+2) Split apart the plugin from the pppoe-discovery program so that the
+   plugin could use pppd functions such as error() rather than things
+   like fprintf() and syslog().
+3) Removed the stuff relating to DLPI and BPF, which isn't used on
+   Linux; this plugin only works on Linux, and Solaris uses something
+   quite different.
+4) Added a PPPoE packet printer.
+5) Removed several unused functions.
+6) Instead of using bitfields for the 4-bit version and type fields
+   in PPPoE packet headers, use a single 8-bit field and define macros
+   to get the version and type fields out.  This eliminates any
+   dependency on how the compiler lays out bitfields.
+7) Sundry cleanups, such as removing unnecessary casts.
+8) Last but by no means least, removed calls to exit() and die() so
+   that the plugin doesn't exit, but returns an error where appropriate,
+   so that the main pppd code can make the decisions about whether to
+   exit or not.  (The plugin still exits if the specified interface is
+   not a suitable sort of interface.)
+---
+ pppd/plugins/rp-pppoe/Makefile.linux    |  36 +-
+ pppd/plugins/rp-pppoe/common.c          | 473 ++++--------
+ pppd/plugins/rp-pppoe/config.h          |   3 -
+ pppd/plugins/rp-pppoe/debug.c           |   4 +-
+ pppd/plugins/rp-pppoe/discovery.c       | 230 ++----
+ pppd/plugins/rp-pppoe/if.c              | 929 +-----------------------
+ pppd/plugins/rp-pppoe/plugin.c          | 147 ++--
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 624 +++++++++++++++-
+ pppd/plugins/rp-pppoe/pppoe.h           |  86 +--
+ 9 files changed, 957 insertions(+), 1575 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index b874a23..1927263 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -4,13 +4,14 @@
+ # Makefile
+ #
+ # Makefile for Roaring Penguin's Linux PPPoE plugin.
++# Modified for integration with pppd sources by Paul Mackerras.
+ #
+ # Copyright (C) 2001 Roaring Penguin Software Inc.
+ #
+ # This program may be distributed according to the terms of the GNU
+ # General Public License, version 2 or (at your option) any later version.
+ #
+-# $Id: Makefile.linux,v 1.7 2006/06/04 05:07:46 paulus Exp $
++# $Id: Makefile.linux,v 1.8 2008/06/09 08:34:23 paulus Exp $
+ #***********************************************************************
+ 
+ DESTDIR = $(INSTROOT)@DESTDIR@
+@@ -22,20 +23,23 @@ PPPDVERSION = $(shell awk -F '"' '/VERSION/ { print $$2; }' ../../patchlevel.h)
+ INSTALL	= install
+ 
+ # Version is set ONLY IN THE MAKEFILE!  Don't delete this!
+-VERSION=3.3
++RP_VERSION=3.8p
+ 
+ COPTS=-O2 -g
+-CFLAGS=$(COPTS) -I../../../include/linux
++CFLAGS=$(COPTS) -I../../../include/linux '-DRP_VERSION="$(RP_VERSION)"'
+ all: rp-pppoe.so pppoe-discovery
+ 
+-pppoe-discovery: libplugin.a pppoe-discovery.o
+-	$(CC) -o pppoe-discovery pppoe-discovery.o libplugin.a
++pppoe-discovery: pppoe-discovery.o debug.o
++	$(CC) -o pppoe-discovery pppoe-discovery.o debug.o
+ 
+ pppoe-discovery.o: pppoe-discovery.c
+-	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o pppoe-discovery.o pppoe-discovery.c
++	$(CC) $(CFLAGS) -c -o pppoe-discovery.o pppoe-discovery.c
+ 
+-rp-pppoe.so: libplugin.a plugin.o
+-	$(CC) -o rp-pppoe.so -shared plugin.o libplugin.a
++debug.o: debug.c
++	$(CC) $(CFLAGS) -c -o debug.o debug.c
++
++rp-pppoe.so: plugin.o discovery.o if.o common.o
++	$(CC) -o rp-pppoe.so -shared plugin.o discovery.o if.o common.o
+ 
+ install: all
+ 	$(INSTALL) -d -m 755 $(LIBDIR)
+@@ -44,23 +48,17 @@ install: all
+ 	$(INSTALL) -s -c -m 555 pppoe-discovery $(BINDIR)
+ 
+ clean:
+-	rm -f *.o *.so
++	rm -f *.o *.so pppoe-discovery
+ 
+ plugin.o: plugin.c
+-	$(CC) '-DRP_VERSION="$(VERSION)"' $(CFLAGS) -I../../..  -c -o plugin.o -fPIC plugin.c
+-
+-libplugin.a: discovery.o if.o common.o debug.o
+-	$(AR) -rc $@ $^
++	$(CC) $(CFLAGS) -I../../.. -c -o plugin.o -fPIC plugin.c
+ 
+ discovery.o: discovery.c
+-	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o discovery.o -fPIC discovery.c
++	$(CC) $(CFLAGS) -I../../.. -c -o discovery.o -fPIC discovery.c
+ 
+ if.o: if.c
+-	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o if.o -fPIC if.c
+-
+-debug.o: debug.c
+-	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o debug.o -fPIC debug.c
++	$(CC) $(CFLAGS) -I../../.. -c -o if.o -fPIC if.c
+ 
+ common.o: common.c
+-	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o common.o -fPIC common.c
++	$(CC) $(CFLAGS) -I../../.. -c -o common.o -fPIC common.c
+ 
+diff --git a/pppd/plugins/rp-pppoe/common.c b/pppd/plugins/rp-pppoe/common.c
+index a39e97a..a49efe7 100644
+--- a/pppd/plugins/rp-pppoe/common.c
++++ b/pppd/plugins/rp-pppoe/common.c
+@@ -14,17 +14,16 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: common.c,v 1.2 2004/01/13 04:03:58 paulus Exp $";
++"$Id: common.c,v 1.3 2008/06/09 08:34:23 paulus Exp $";
+ 
++#define _GNU_SOURCE 1
+ #include "pppoe.h"
+-
+-#ifdef HAVE_SYSLOG_H
+-#include <syslog.h>
+-#endif
++#include "pppd/pppd.h"
+ 
+ #include <string.h>
+ #include <errno.h>
+ #include <stdlib.h>
++#include <syslog.h>	/* for LOG_DEBUG */
+ 
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+@@ -49,18 +48,18 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+     unsigned char *curTag;
+     UINT16_t tagType, tagLen;
+ 
+-    if (packet->ver != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
++    if (PPPOE_VER(packet->vertype) != 1) {
++	error("Invalid PPPoE version (%d)", PPPOE_VER(packet->vertype));
+ 	return -1;
+     }
+-    if (packet->type != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
++    if (PPPOE_TYPE(packet->vertype) != 1) {
++	error("Invalid PPPoE type (%d)", PPPOE_TYPE(packet->vertype));
+ 	return -1;
+     }
+ 
+     /* Do some sanity checks on packet */
+     if (len > ETH_DATA_LEN - 6) { /* 6-byte overhead for PPPoE header */
+-	syslog(LOG_ERR, "Invalid PPPoE packet length (%u)", len);
++	error("Invalid PPPoE packet length (%u)", len);
+ 	return -1;
+     }
+ 
+@@ -68,15 +67,13 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+     curTag = packet->payload;
+     while(curTag - packet->payload < len) {
+ 	/* Alignment is not guaranteed, so do this by hand... */
+-	tagType = (((UINT16_t) curTag[0]) << 8) +
+-	    (UINT16_t) curTag[1];
+-	tagLen = (((UINT16_t) curTag[2]) << 8) +
+-	    (UINT16_t) curTag[3];
++	tagType = (curTag[0] << 8) + curTag[1];
++	tagLen = (curTag[2] << 8) + curTag[3];
+ 	if (tagType == TAG_END_OF_LIST) {
+ 	    return 0;
+ 	}
+ 	if ((curTag - packet->payload) + tagLen + TAG_HDR_SIZE > len) {
+-	    syslog(LOG_ERR, "Invalid PPPoE tag length (%u)", tagLen);
++	    error("Invalid PPPoE tag length (%u)", tagLen);
+ 	    return -1;
+ 	}
+ 	func(tagType, tagLen, curTag+TAG_HDR_SIZE, extra);
+@@ -85,303 +82,6 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+     return 0;
+ }
+ 
+-/**********************************************************************
+-*%FUNCTION: findTag
+-*%ARGUMENTS:
+-* packet -- the PPPoE discovery packet to parse
+-* type -- the type of the tag to look for
+-* tag -- will be filled in with tag contents
+-*%RETURNS:
+-* A pointer to the tag if one of the specified type is found; NULL
+-* otherwise. 
+-*%DESCRIPTION:
+-* Looks for a specific tag type.
+-***********************************************************************/
+-unsigned char *
+-findTag(PPPoEPacket *packet, UINT16_t type, PPPoETag *tag)
+-{
+-    UINT16_t len = ntohs(packet->length);
+-    unsigned char *curTag;
+-    UINT16_t tagType, tagLen;
+-
+-    if (packet->ver != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
+-	return NULL;
+-    }
+-    if (packet->type != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
+-	return NULL;
+-    }
+-
+-    /* Do some sanity checks on packet */
+-    if (len > ETH_DATA_LEN - 6) { /* 6-byte overhead for PPPoE header */
+-	syslog(LOG_ERR, "Invalid PPPoE packet length (%u)", len);
+-	return NULL;
+-    }
+-
+-    /* Step through the tags */
+-    curTag = packet->payload;
+-    while(curTag - packet->payload < len) {
+-	/* Alignment is not guaranteed, so do this by hand... */
+-	tagType = (((UINT16_t) curTag[0]) << 8) +
+-	    (UINT16_t) curTag[1];
+-	tagLen = (((UINT16_t) curTag[2]) << 8) +
+-	    (UINT16_t) curTag[3];
+-	if (tagType == TAG_END_OF_LIST) {
+-	    return NULL;
+-	}
+-	if ((curTag - packet->payload) + tagLen + TAG_HDR_SIZE > len) {
+-	    syslog(LOG_ERR, "Invalid PPPoE tag length (%u)", tagLen);
+-	    return NULL;
+-	}
+-	if (tagType == type) {
+-	    memcpy(tag, curTag, tagLen + TAG_HDR_SIZE);
+-	    return curTag;
+-	}
+-	curTag = curTag + TAG_HDR_SIZE + tagLen;
+-    }
+-    return NULL;
+-}
+-
+-/**********************************************************************
+-*%FUNCTION: printErr
+-*%ARGUMENTS:
+-* str -- error message
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Prints a message to stderr and syslog.
+-***********************************************************************/
+-void
+-printErr(char const *str)
+-{
+-    fprintf(stderr, "pppoe: %s\n", str);
+-    syslog(LOG_ERR, "%s", str);
+-}
+-
+-
+-/**********************************************************************
+-*%FUNCTION: strDup
+-*%ARGUMENTS:
+-* str -- string to copy
+-*%RETURNS:
+-* A malloc'd copy of str.  Exits if malloc fails.
+-***********************************************************************/
+-char *
+-strDup(char const *str)
+-{
+-    char *copy = malloc(strlen(str)+1);
+-    if (!copy) {
+-	rp_fatal("strdup failed");
+-    }
+-    strcpy(copy, str);
+-    return copy;
+-}
+-
+-#ifdef PPPOE_STANDALONE
+-/**********************************************************************
+-*%FUNCTION: computeTCPChecksum
+-*%ARGUMENTS:
+-* ipHdr -- pointer to IP header
+-* tcpHdr -- pointer to TCP header
+-*%RETURNS:
+-* The computed TCP checksum
+-***********************************************************************/
+-UINT16_t
+-computeTCPChecksum(unsigned char *ipHdr, unsigned char *tcpHdr)
+-{
+-    UINT32_t sum = 0;
+-    UINT16_t count = ipHdr[2] * 256 + ipHdr[3];
+-    unsigned char *addr = tcpHdr;
+-    unsigned char pseudoHeader[12];
+-
+-    /* Count number of bytes in TCP header and data */
+-    count -= (ipHdr[0] & 0x0F) * 4;
+-
+-    memcpy(pseudoHeader, ipHdr+12, 8);
+-    pseudoHeader[8] = 0;
+-    pseudoHeader[9] = ipHdr[9];
+-    pseudoHeader[10] = (count >> 8) & 0xFF;
+-    pseudoHeader[11] = (count & 0xFF);
+-
+-    /* Checksum the pseudo-header */
+-    sum += * (UINT16_t *) pseudoHeader;
+-    sum += * ((UINT16_t *) (pseudoHeader+2));
+-    sum += * ((UINT16_t *) (pseudoHeader+4));
+-    sum += * ((UINT16_t *) (pseudoHeader+6));
+-    sum += * ((UINT16_t *) (pseudoHeader+8));
+-    sum += * ((UINT16_t *) (pseudoHeader+10));
+-
+-    /* Checksum the TCP header and data */
+-    while (count > 1) {
+-	sum += * (UINT16_t *) addr;
+-	addr += 2;
+-	count -= 2;
+-    }
+-    if (count > 0) {
+-	sum += *addr;
+-    }
+-
+-    while(sum >> 16) {
+-	sum = (sum & 0xffff) + (sum >> 16);
+-    }
+-    return (UINT16_t) (~sum & 0xFFFF);
+-}
+-
+-/**********************************************************************
+-*%FUNCTION: clampMSS
+-*%ARGUMENTS:
+-* packet -- PPPoE session packet
+-* dir -- either "incoming" or "outgoing"
+-* clampMss -- clamp value
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Clamps MSS option if TCP SYN flag is set.
+-***********************************************************************/
+-void
+-clampMSS(PPPoEPacket *packet, char const *dir, int clampMss)
+-{
+-    unsigned char *tcpHdr;
+-    unsigned char *ipHdr;
+-    unsigned char *opt;
+-    unsigned char *endHdr;
+-    unsigned char *mssopt = NULL;
+-    UINT16_t csum;
+-
+-    int len, minlen;
+-
+-    /* check PPP protocol type */
+-    if (packet->payload[0] & 0x01) {
+-        /* 8 bit protocol type */
+-
+-        /* Is it IPv4? */
+-        if (packet->payload[0] != 0x21) {
+-            /* Nope, ignore it */
+-            return;
+-        }
+-
+-        ipHdr = packet->payload + 1;
+-	minlen = 41;
+-    } else {
+-        /* 16 bit protocol type */
+-
+-        /* Is it IPv4? */
+-        if (packet->payload[0] != 0x00 ||
+-            packet->payload[1] != 0x21) {
+-            /* Nope, ignore it */
+-            return;
+-        }
+-
+-        ipHdr = packet->payload + 2;
+-	minlen = 42;
+-    }
+-
+-    /* Is it too short? */
+-    len = (int) ntohs(packet->length);
+-    if (len < minlen) {
+-	/* 20 byte IP header; 20 byte TCP header; at least 1 or 2 byte PPP protocol */
+-	return;
+-    }
+-
+-    /* Verify once more that it's IPv4 */
+-    if ((ipHdr[0] & 0xF0) != 0x40) {
+-	return;
+-    }
+-
+-    /* Is it a fragment that's not at the beginning of the packet? */
+-    if ((ipHdr[6] & 0x1F) || ipHdr[7]) {
+-	/* Yup, don't touch! */
+-	return;
+-    }
+-    /* Is it TCP? */
+-    if (ipHdr[9] != 0x06) {
+-	return;
+-    }
+-
+-    /* Get start of TCP header */
+-    tcpHdr = ipHdr + (ipHdr[0] & 0x0F) * 4;
+-
+-    /* Is SYN set? */
+-    if (!(tcpHdr[13] & 0x02)) {
+-	return;
+-    }
+-
+-    /* Compute and verify TCP checksum -- do not touch a packet with a bad
+-       checksum */
+-    csum = computeTCPChecksum(ipHdr, tcpHdr);
+-    if (csum) {
+-	syslog(LOG_ERR, "Bad TCP checksum %x", (unsigned int) csum);
+-
+-	/* Upper layers will drop it */
+-	return;
+-    }
+-
+-    /* Look for existing MSS option */
+-    endHdr = tcpHdr + ((tcpHdr[12] & 0xF0) >> 2);
+-    opt = tcpHdr + 20;
+-    while (opt < endHdr) {
+-	if (!*opt) break;	/* End of options */
+-	switch(*opt) {
+-	case 1:
+-	    opt++;
+-	    break;
+-
+-	case 2:
+-	    if (opt[1] != 4) {
+-		/* Something fishy about MSS option length. */
+-		syslog(LOG_ERR,
+-		       "Bogus length for MSS option (%u) from %u.%u.%u.%u",
+-		       (unsigned int) opt[1],
+-		       (unsigned int) ipHdr[12],
+-		       (unsigned int) ipHdr[13],
+-		       (unsigned int) ipHdr[14],
+-		       (unsigned int) ipHdr[15]);
+-		return;
+-	    }
+-	    mssopt = opt;
+-	    break;
+-	default:
+-	    if (opt[1] < 2) {
+-		/* Someone's trying to attack us? */
+-		syslog(LOG_ERR,
+-		       "Bogus TCP option length (%u) from %u.%u.%u.%u",
+-		       (unsigned int) opt[1],
+-		       (unsigned int) ipHdr[12],
+-		       (unsigned int) ipHdr[13],
+-		       (unsigned int) ipHdr[14],
+-		       (unsigned int) ipHdr[15]);
+-		return;
+-	    }
+-	    opt += (opt[1]);
+-	    break;
+-	}
+-	/* Found existing MSS option? */
+-	if (mssopt) break;
+-    }
+-
+-    /* If MSS exists and it's low enough, do nothing */
+-    if (mssopt) {
+-	unsigned mss = mssopt[2] * 256 + mssopt[3];
+-	if (mss <= clampMss) {
+-	    return;
+-	}
+-
+-	mssopt[2] = (((unsigned) clampMss) >> 8) & 0xFF;
+-	mssopt[3] = ((unsigned) clampMss) & 0xFF;
+-    } else {
+-	/* No MSS option.  Don't add one; we'll have to use 536. */
+-	return;
+-    }
+-
+-    /* Recompute TCP checksum */
+-    tcpHdr[16] = 0;
+-    tcpHdr[17] = 0;
+-    csum = computeTCPChecksum(ipHdr, tcpHdr);
+-    (* (UINT16_t *) (tcpHdr+16)) = csum;
+-}
+-#endif /* PPPOE_STANDALONE */
+-
+ /***********************************************************************
+ *%FUNCTION: sendPADT
+ *%ARGUMENTS:
+@@ -410,8 +110,7 @@ sendPADT(PPPoEConnection *conn, char const *msg)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADT;
+     packet.session = conn->session;
+ 
+@@ -442,7 +141,7 @@ sendPADT(PPPoEConnection *conn, char const *msg)
+ 	cursor += elen + TAG_HDR_SIZE;
+ 	plen += elen + TAG_HDR_SIZE;
+     }
+-	    
++
+     /* Copy cookie and relay-ID if needed */
+     if (conn->cookie.type) {
+ 	CHECK_ROOM(cursor, packet.payload,
+@@ -462,43 +161,123 @@ sendPADT(PPPoEConnection *conn, char const *msg)
+ 
+     packet.length = htons(plen);
+     sendPacket(conn, conn->discoverySocket, &packet, (int) (plen + HDR_SIZE));
+-    if (conn->debugFile) {
+-	dumpPacket(conn->debugFile, &packet, "SENT");
+-	fprintf(conn->debugFile, "\n");
+-	fflush(conn->debugFile);
+-    }
+-    syslog(LOG_INFO,"Sent PADT");
++    info("Sent PADT");
+ }
+ 
+-/**********************************************************************
+-*%FUNCTION: parseLogErrs
+-*%ARGUMENTS:
+-* type -- tag type
+-* len -- tag length
+-* data -- tag data
+-* extra -- extra user data
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Picks error tags out of a packet and logs them.
+-***********************************************************************/
+-void
+-parseLogErrs(UINT16_t type, UINT16_t len, unsigned char *data,
+-	     void *extra)
++#define EH(x)	(x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
++
++/* Print out a PPPOE packet for debugging */
++void pppoe_printpkt(PPPoEPacket *packet,
++		    void (*printer)(void *, char *, ...), void *arg)
+ {
+-    switch(type) {
+-    case TAG_SERVICE_NAME_ERROR:
+-	syslog(LOG_ERR, "PADT: Service-Name-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADT: Service-Name-Error: %.*s\n", (int) len, data);
+-	break;
+-    case TAG_AC_SYSTEM_ERROR:
+-	syslog(LOG_ERR, "PADT: System-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADT: System-Error: %.*s\n", (int) len, data);
++    int len = ntohs(packet->length);
++    int i, tag, tlen, text;
++
++    switch (ntohs(packet->ethHdr.h_proto)) {
++    case ETH_PPPOE_DISCOVERY:
++	printer(arg, "PPPOE Discovery V%dT%d ", PPPOE_VER(packet->vertype),
++		PPPOE_TYPE(packet->vertype));
++	switch (packet->code) {
++	case CODE_PADI:
++	    printer(arg, "PADI");
++	    break;
++	case CODE_PADO:
++	    printer(arg, "PADO");
++	    break;
++	case CODE_PADR:
++	    printer(arg, "PADR");
++	    break;
++	case CODE_PADS:
++	    printer(arg, "PADS");
++	    break;
++	case CODE_PADT:
++	    printer(arg, "PADT");
++	    break;
++	default:
++	    printer(arg, "unknown code %x", packet->code);
++	}
++	printer(arg, " session 0x%x length %d\n", ntohs(packet->session), len);
+ 	break;
+-    case TAG_GENERIC_ERROR:
+-	syslog(LOG_ERR, "PADT: Generic-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADT: Generic-Error: %.*s\n", (int) len, data);
++    case ETH_PPPOE_SESSION:
++	printer(arg, "PPPOE Session V%dT%d", PPPOE_VER(packet->vertype),
++		PPPOE_TYPE(packet->vertype));
++	printer(arg, " code 0x%x session 0x%x length %d\n", packet->code,
++		ntohs(packet->session), len);
+ 	break;
++    default:
++	printer(arg, "Unknown ethernet frame with proto = 0x%x\n",
++		ntohs(packet->ethHdr.h_proto));
++    }
++
++    printer(arg, " dst %x:%x:%x:%x:%x:%x ", EH(packet->ethHdr.h_dest));
++    printer(arg, " src %x:%x:%x:%x:%x:%x\n", EH(packet->ethHdr.h_source));
++    if (ntohs(packet->ethHdr.h_proto) != ETH_PPPOE_DISCOVERY)
++	return;
++
++    for (i = 0; i + TAG_HDR_SIZE <= len; i += tlen) {
++	tag = (packet->payload[i] << 8) + packet->payload[i+1];
++	tlen = (packet->payload[i+2] << 8) + packet->payload[i+3];
++	if (i + tlen + TAG_HDR_SIZE > len)
++	    break;
++	text = 0;
++	i += TAG_HDR_SIZE;
++	printer(arg, " [");
++	switch (tag) {
++	case TAG_END_OF_LIST:
++	    printer(arg, "end-of-list");
++	    break;
++	case TAG_SERVICE_NAME:
++	    printer(arg, "service-name");
++	    text = 1;
++	    break;
++	case TAG_AC_NAME:
++	    printer(arg, "AC-name");
++	    text = 1;
++	    break;
++	case TAG_HOST_UNIQ:
++	    printer(arg, "host-uniq");
++	    break;
++	case TAG_AC_COOKIE:
++	    printer(arg, "AC-cookie");
++	    break;
++	case TAG_VENDOR_SPECIFIC:
++	    printer(arg, "vendor-specific");
++	    break;
++	case TAG_RELAY_SESSION_ID:
++	    printer(arg, "relay-session-id");
++	    break;
++	case TAG_SERVICE_NAME_ERROR:
++	    printer(arg, "service-name-error");
++	    text = 1;
++	    break;
++	case TAG_AC_SYSTEM_ERROR:
++	    printer(arg, "AC-system-error");
++	    text = 1;
++	    break;
++	case TAG_GENERIC_ERROR:
++	    printer(arg, "generic-error");
++	    text = 1;
++	    break;
++	default:
++	    printer(arg, "unknown tag 0x%x", tag);
++	}
++	if (tlen) {
++	    if (text)
++		printer(arg, " %.*v", tlen, &packet->payload[i]);
++	    else if (tlen <= 32)
++		printer(arg, " %.*B", tlen, &packet->payload[i]);
++	    else
++		printer(arg, " %.32B... (length %d)",
++			&packet->payload[i], tlen);
++	}
++	printer(arg, "]");
+     }
++    printer(arg, "\n");
+ }
+ 
++void pppoe_log_packet(const char *prefix, PPPoEPacket *packet)
++{
++    init_pr_log(prefix, LOG_DEBUG);
++    pppoe_printpkt(packet, pr_log, NULL);
++    end_pr_log();
++}
+diff --git a/pppd/plugins/rp-pppoe/config.h b/pppd/plugins/rp-pppoe/config.h
+index 644d78e..5703087 100644
+--- a/pppd/plugins/rp-pppoe/config.h
++++ b/pppd/plugins/rp-pppoe/config.h
+@@ -130,6 +130,3 @@
+ 
+ /* Define if you have the N_HDLC line discipline in linux/termios.h */
+ #define HAVE_N_HDLC 1
+-
+-/* Define if bitfields are packed in reverse order */
+-#define PACK_BITFIELDS_REVERSED 1
+diff --git a/pppd/plugins/rp-pppoe/debug.c b/pppd/plugins/rp-pppoe/debug.c
+index a443eac..a6e6981 100644
+--- a/pppd/plugins/rp-pppoe/debug.c
++++ b/pppd/plugins/rp-pppoe/debug.c
+@@ -14,7 +14,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: debug.c,v 1.1 2001/12/14 02:55:20 mostrows Exp $";
++"$Id: debug.c,v 1.2 2008/06/09 08:34:23 paulus Exp $";
+ 
+ #include "pppoe.h"
+ #include <sys/time.h>
+@@ -116,6 +116,8 @@ dumpPacket(FILE *fp, PPPoEPacket *packet, char const *dir)
+     case CODE_PADR: fprintf(fp, "PADR "); break;
+     case CODE_PADS: fprintf(fp, "PADS "); break;
+     case CODE_PADT: fprintf(fp, "PADT "); break;
++    case CODE_PADM: fprintf(fp, "PADM "); break;
++    case CODE_PADN: fprintf(fp, "PADN "); break;
+     case CODE_SESS: fprintf(fp, "SESS "); break;
+     }
+ 
+diff --git a/pppd/plugins/rp-pppoe/discovery.c b/pppd/plugins/rp-pppoe/discovery.c
+index 498ed0a..dc61489 100644
+--- a/pppd/plugins/rp-pppoe/discovery.c
++++ b/pppd/plugins/rp-pppoe/discovery.c
+@@ -9,13 +9,11 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: discovery.c,v 1.4 2005/03/22 10:22:32 paulus Exp $";
++"$Id: discovery.c,v 1.5 2008/06/09 08:34:23 paulus Exp $";
+ 
++#define _GNU_SOURCE 1
+ #include "pppoe.h"
+-
+-#ifdef HAVE_SYSLOG_H
+-#include <syslog.h>
+-#endif
++#include "pppd/pppd.h"
+ 
+ #include <string.h>
+ #include <stdlib.h>
+@@ -52,7 +50,7 @@ static char const RCSID[] =
+ *%DESCRIPTION:
+ * If a HostUnique tag is found which matches our PID, sets *extra to 1.
+ ***********************************************************************/
+-void
++static void
+ parseForHostUniq(UINT16_t type, UINT16_t len, unsigned char *data,
+ 		 void *extra)
+ {
+@@ -77,7 +75,7 @@ parseForHostUniq(UINT16_t type, UINT16_t len, unsigned char *data,
+ * If we are using the Host-Unique tag, verifies that packet contains
+ * our unique identifier.
+ ***********************************************************************/
+-int
++static int
+ packetIsForMe(PPPoEConnection *conn, PPPoEPacket *packet)
+ {
+     int forMe = 0;
+@@ -106,7 +104,7 @@ packetIsForMe(PPPoEConnection *conn, PPPoEPacket *packet)
+ *%DESCRIPTION:
+ * Picks interesting tags out of a PADO packet
+ ***********************************************************************/
+-void
++static void
+ parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
+ 	      void *extra)
+ {
+@@ -118,7 +116,7 @@ parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
+     case TAG_AC_NAME:
+ 	pc->seenACName = 1;
+ 	if (conn->printACNames) {
+-	    printf("Access-Concentrator: %.*s\n", (int) len, data);
++	    info("Access-Concentrator: %.*s", (int) len, data);
+ 	}
+ 	if (conn->acName && len == strlen(conn->acName) &&
+ 	    !strncmp((char *) data, conn->acName, len)) {
+@@ -127,65 +125,32 @@ parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
+ 	break;
+     case TAG_SERVICE_NAME:
+ 	pc->seenServiceName = 1;
+-	if (conn->printACNames && len > 0) {
+-	    printf("       Service-Name: %.*s\n", (int) len, data);
+-	}
+ 	if (conn->serviceName && len == strlen(conn->serviceName) &&
+ 	    !strncmp((char *) data, conn->serviceName, len)) {
+ 	    pc->serviceNameOK = 1;
+ 	}
+ 	break;
+     case TAG_AC_COOKIE:
+-	if (conn->printACNames) {
+-	    printf("Got a cookie:");
+-	    /* Print first 20 bytes of cookie */
+-	    for (i=0; i<len && i < 20; i++) {
+-		printf(" %02x", (unsigned) data[i]);
+-	    }
+-	    if (i < len) printf("...");
+-	    printf("\n");
+-	}
+ 	conn->cookie.type = htons(type);
+ 	conn->cookie.length = htons(len);
+ 	memcpy(conn->cookie.payload, data, len);
+ 	break;
+     case TAG_RELAY_SESSION_ID:
+-	if (conn->printACNames) {
+-	    printf("Got a Relay-ID:");
+-	    /* Print first 20 bytes of relay ID */
+-	    for (i=0; i<len && i < 20; i++) {
+-		printf(" %02x", (unsigned) data[i]);
+-	    }
+-	    if (i < len) printf("...");
+-	    printf("\n");
+-	}
+ 	conn->relayId.type = htons(type);
+ 	conn->relayId.length = htons(len);
+ 	memcpy(conn->relayId.payload, data, len);
+ 	break;
+     case TAG_SERVICE_NAME_ERROR:
+-	if (conn->printACNames) {
+-	    printf("Got a Service-Name-Error tag: %.*s\n", (int) len, data);
+-	} else {
+-	    syslog(LOG_ERR, "PADO: Service-Name-Error: %.*s", (int) len, data);
+-	    exit(1);
+-	}
++	error("PADO: Service-Name-Error: %.*s", (int) len, data);
++	conn->error = 1;
+ 	break;
+     case TAG_AC_SYSTEM_ERROR:
+-	if (conn->printACNames) {
+-	    printf("Got a System-Error tag: %.*s\n", (int) len, data);
+-	} else {
+-	    syslog(LOG_ERR, "PADO: System-Error: %.*s", (int) len, data);
+-	    exit(1);
+-	}
++	error("PADO: System-Error: %.*s", (int) len, data);
++	conn->error = 1;
+ 	break;
+     case TAG_GENERIC_ERROR:
+-	if (conn->printACNames) {
+-	    printf("Got a Generic-Error tag: %.*s\n", (int) len, data);
+-	} else {
+-	    syslog(LOG_ERR, "PADO: Generic-Error: %.*s", (int) len, data);
+-	    exit(1);
+-	}
++	error("PADO: Generic-Error: %.*s", (int) len, data);
++	conn->error = 1;
+ 	break;
+     }
+ }
+@@ -202,27 +167,27 @@ parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
+ *%DESCRIPTION:
+ * Picks interesting tags out of a PADS packet
+ ***********************************************************************/
+-void
++static void
+ parsePADSTags(UINT16_t type, UINT16_t len, unsigned char *data,
+ 	      void *extra)
+ {
+     PPPoEConnection *conn = (PPPoEConnection *) extra;
+     switch(type) {
+     case TAG_SERVICE_NAME:
+-	syslog(LOG_DEBUG, "PADS: Service-Name: '%.*s'", (int) len, data);
++	dbglog("PADS: Service-Name: '%.*s'", (int) len, data);
+ 	break;
+     case TAG_SERVICE_NAME_ERROR:
+-	syslog(LOG_ERR, "PADS: Service-Name-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADS: Service-Name-Error: %.*s\n", (int) len, data);
+-	exit(1);
++	error("PADS: Service-Name-Error: %.*s", (int) len, data);
++	conn->error = 1;
++	break;
+     case TAG_AC_SYSTEM_ERROR:
+-	syslog(LOG_ERR, "PADS: System-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADS: System-Error: %.*s\n", (int) len, data);
+-	exit(1);
++	error("PADS: System-Error: %.*s", (int) len, data);
++	conn->error = 1;
++	break;
+     case TAG_GENERIC_ERROR:
+-	syslog(LOG_ERR, "PADS: Generic-Error: %.*s", (int) len, data);
+-	fprintf(stderr, "PADS: Generic-Error: %.*s\n", (int) len, data);
+-	exit(1);
++	error("PADS: Generic-Error: %.*s", (int) len, data);
++	conn->error = 1;
++	break;
+     case TAG_RELAY_SESSION_ID:
+ 	conn->relayId.type = htons(type);
+ 	conn->relayId.length = htons(len);
+@@ -240,7 +205,7 @@ parsePADSTags(UINT16_t type, UINT16_t len, unsigned char *data,
+ *%DESCRIPTION:
+ * Sends a PADI packet
+ ***********************************************************************/
+-void
++static void
+ sendPADI(PPPoEConnection *conn)
+ {
+     PPPoEPacket packet;
+@@ -248,31 +213,38 @@ sendPADI(PPPoEConnection *conn)
+     PPPoETag *svc = (PPPoETag *) (&packet.payload);
+     UINT16_t namelen = 0;
+     UINT16_t plen;
++    int omit_service_name = 0;
+ 
+     if (conn->serviceName) {
+ 	namelen = (UINT16_t) strlen(conn->serviceName);
++	if (!strcmp(conn->serviceName, "NO-SERVICE-NAME-NON-RFC-COMPLIANT")) {
++	    omit_service_name = 1;
++	}
+     }
+-    plen = TAG_HDR_SIZE + namelen;
+-    CHECK_ROOM(cursor, packet.payload, plen);
+ 
+     /* Set destination to Ethernet broadcast address */
+     memset(packet.ethHdr.h_dest, 0xFF, ETH_ALEN);
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADI;
+     packet.session = 0;
+ 
+-    svc->type = TAG_SERVICE_NAME;
+-    svc->length = htons(namelen);
+-    CHECK_ROOM(cursor, packet.payload, namelen+TAG_HDR_SIZE);
++    if (!omit_service_name) {
++	plen = TAG_HDR_SIZE + namelen;
++	CHECK_ROOM(cursor, packet.payload, plen);
+ 
+-    if (conn->serviceName) {
+-	memcpy(svc->payload, conn->serviceName, strlen(conn->serviceName));
++	svc->type = TAG_SERVICE_NAME;
++	svc->length = htons(namelen);
++
++	if (conn->serviceName) {
++	    memcpy(svc->payload, conn->serviceName, strlen(conn->serviceName));
++	}
++	cursor += namelen + TAG_HDR_SIZE;
++    } else {
++	plen = 0;
+     }
+-    cursor += namelen + TAG_HDR_SIZE;
+ 
+     /* If we're using Host-Uniq, copy it over */
+     if (conn->useHostUniq) {
+@@ -290,11 +262,6 @@ sendPADI(PPPoEConnection *conn)
+     packet.length = htons(plen);
+ 
+     sendPacket(conn, conn->discoverySocket, &packet, (int) (plen + HDR_SIZE));
+-    if (conn->debugFile) {
+-	dumpPacket(conn->debugFile, &packet, "SENT");
+-	fprintf(conn->debugFile, "\n");
+-	fflush(conn->debugFile);
+-    }
+ }
+ 
+ /**********************************************************************
+@@ -307,7 +274,7 @@ sendPADI(PPPoEConnection *conn)
+ *%DESCRIPTION:
+ * Waits for a PADO packet and copies useful information
+ ***********************************************************************/
+-void
++static void
+ waitForPADO(PPPoEConnection *conn, int timeout)
+ {
+     fd_set readable;
+@@ -322,12 +289,13 @@ waitForPADO(PPPoEConnection *conn, int timeout)
+     pc.serviceNameOK = (conn->serviceName) ? 0 : 1;
+     pc.seenACName    = 0;
+     pc.seenServiceName = 0;
+-	
++    conn->error = 0;
++
+     do {
+ 	if (BPF_BUFFER_IS_EMPTY) {
+ 	    tv.tv_sec = timeout;
+ 	    tv.tv_usec = 0;
+-	
++
+ 	    FD_ZERO(&readable);
+ 	    FD_SET(conn->discoverySocket, &readable);
+ 
+@@ -336,17 +304,18 @@ waitForPADO(PPPoEConnection *conn, int timeout)
+ 		if (r >= 0 || errno != EINTR) break;
+ 	    }
+ 	    if (r < 0) {
+-		fatalSys("select (waitForPADO)");
++		error("select (waitForPADO): %m");
++		return;
+ 	    }
+ 	    if (r == 0) return;        /* Timed out */
+ 	}
+-	
++
+ 	/* Get the packet */
+ 	receivePacket(conn->discoverySocket, &packet, &len);
+ 
+ 	/* Check length */
+ 	if (ntohs(packet.length) + HDR_SIZE > len) {
+-	    syslog(LOG_ERR, "Bogus PPPoE length field (%u)",
++	    error("Bogus PPPoE length field (%u)",
+ 		   (unsigned int) ntohs(packet.length));
+ 	    continue;
+ 	}
+@@ -356,44 +325,29 @@ waitForPADO(PPPoEConnection *conn, int timeout)
+ 	if (etherType(&packet) != Eth_PPPOE_Discovery) continue;
+ #endif
+ 
+-	if (conn->debugFile) {
+-	    dumpPacket(conn->debugFile, &packet, "RCVD");
+-	    fprintf(conn->debugFile, "\n");
+-	    fflush(conn->debugFile);
+-	}
+ 	/* If it's not for us, loop again */
+ 	if (!packetIsForMe(conn, &packet)) continue;
+ 
+ 	if (packet.code == CODE_PADO) {
+-	    if (BROADCAST(packet.ethHdr.h_source)) {
+-		printErr("Ignoring PADO packet from broadcast MAC address");
++	    if (NOT_UNICAST(packet.ethHdr.h_source)) {
++		error("Ignoring PADO packet from non-unicast MAC address");
+ 		continue;
+ 	    }
+-	    parsePacket(&packet, parsePADOTags, &pc);
++	    if (parsePacket(&packet, parsePADOTags, &pc) < 0)
++		return;
++	    if (conn->error)
++		return;
+ 	    if (!pc.seenACName) {
+-		printErr("Ignoring PADO packet with no AC-Name tag");
++		error("Ignoring PADO packet with no AC-Name tag");
+ 		continue;
+ 	    }
+ 	    if (!pc.seenServiceName) {
+-		printErr("Ignoring PADO packet with no Service-Name tag");
++		error("Ignoring PADO packet with no Service-Name tag");
+ 		continue;
+ 	    }
+ 	    conn->numPADOs++;
+-	    if (conn->printACNames) {
+-		printf("--------------------------------------------------\n");
+-	    }
+ 	    if (pc.acNameOK && pc.serviceNameOK) {
+ 		memcpy(conn->peerEth, packet.ethHdr.h_source, ETH_ALEN);
+-		if (conn->printACNames) {
+-		    printf("AC-Ethernet-Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-			   (unsigned) conn->peerEth[0], 
+-			   (unsigned) conn->peerEth[1],
+-			   (unsigned) conn->peerEth[2],
+-			   (unsigned) conn->peerEth[3],
+-			   (unsigned) conn->peerEth[4],
+-			   (unsigned) conn->peerEth[5]);
+-		    continue;
+-		}
+ 		conn->discoveryState = STATE_RECEIVED_PADO;
+ 		break;
+ 	    }
+@@ -410,7 +364,7 @@ waitForPADO(PPPoEConnection *conn, int timeout)
+ *%DESCRIPTION:
+ * Sends a PADR packet
+ ***********************************************************************/
+-void
++static void
+ sendPADR(PPPoEConnection *conn)
+ {
+     PPPoEPacket packet;
+@@ -430,8 +384,7 @@ sendPADR(PPPoEConnection *conn)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADR;
+     packet.session = 0;
+ 
+@@ -474,11 +427,6 @@ sendPADR(PPPoEConnection *conn)
+ 
+     packet.length = htons(plen);
+     sendPacket(conn, conn->discoverySocket, &packet, (int) (plen + HDR_SIZE));
+-    if (conn->debugFile) {
+-	dumpPacket(conn->debugFile, &packet, "SENT");
+-	fprintf(conn->debugFile, "\n");
+-	fflush(conn->debugFile);
+-    }
+ }
+ 
+ /**********************************************************************
+@@ -491,7 +439,7 @@ sendPADR(PPPoEConnection *conn)
+ *%DESCRIPTION:
+ * Waits for a PADS packet and copies useful information
+ ***********************************************************************/
+-void
++static void
+ waitForPADS(PPPoEConnection *conn, int timeout)
+ {
+     fd_set readable;
+@@ -500,20 +448,22 @@ waitForPADS(PPPoEConnection *conn, int timeout)
+     PPPoEPacket packet;
+     int len;
+ 
++    conn->error = 0;
+     do {
+ 	if (BPF_BUFFER_IS_EMPTY) {
+ 	    tv.tv_sec = timeout;
+ 	    tv.tv_usec = 0;
+-	    
++
+ 	    FD_ZERO(&readable);
+ 	    FD_SET(conn->discoverySocket, &readable);
+-	    
++
+ 	    while(1) {
+ 		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
+ 		if (r >= 0 || errno != EINTR) break;
+ 	    }
+ 	    if (r < 0) {
+-		fatalSys("select (waitForPADS)");
++		error("select (waitForPADS): %m");
++		return;
+ 	    }
+ 	    if (r == 0) return;
+ 	}
+@@ -523,7 +473,7 @@ waitForPADS(PPPoEConnection *conn, int timeout)
+ 
+ 	/* Check length */
+ 	if (ntohs(packet.length) + HDR_SIZE > len) {
+-	    syslog(LOG_ERR, "Bogus PPPoE length field (%u)",
++	    error("Bogus PPPoE length field (%u)",
+ 		   (unsigned int) ntohs(packet.length));
+ 	    continue;
+ 	}
+@@ -532,11 +482,6 @@ waitForPADS(PPPoEConnection *conn, int timeout)
+ 	/* If it's not a Discovery packet, loop again */
+ 	if (etherType(&packet) != Eth_PPPOE_Discovery) continue;
+ #endif
+-	if (conn->debugFile) {
+-	    dumpPacket(conn->debugFile, &packet, "RCVD");
+-	    fprintf(conn->debugFile, "\n");
+-	    fflush(conn->debugFile);
+-	}
+ 
+ 	/* If it's not from the AC, it's not for me */
+ 	if (memcmp(packet.ethHdr.h_source, conn->peerEth, ETH_ALEN)) continue;
+@@ -547,7 +492,10 @@ waitForPADS(PPPoEConnection *conn, int timeout)
+ 	/* Is it PADS?  */
+ 	if (packet.code == CODE_PADS) {
+ 	    /* Parse for goodies */
+-	    parsePacket(&packet, parsePADSTags, conn);
++	    if (parsePacket(&packet, parsePADSTags, conn) < 0)
++		return;
++	    if (conn->error)
++		return;
+ 	    conn->discoveryState = STATE_SESSION;
+ 	    break;
+ 	}
+@@ -556,11 +504,11 @@ waitForPADS(PPPoEConnection *conn, int timeout)
+     /* Don't bother with ntohs; we'll just end up converting it back... */
+     conn->session = packet.session;
+ 
+-    syslog(LOG_INFO, "PPP session is %d", (int) ntohs(conn->session));
++    info("PPP session is %d", (int) ntohs(conn->session));
+ 
+     /* RFC 2516 says session id MUST NOT be zero or 0xFFFF */
+     if (ntohs(conn->session) == 0 || ntohs(conn->session) == 0xFFFF) {
+-	syslog(LOG_ERR, "Access concentrator used a session value of %x -- the AC is violating RFC 2516", (unsigned int) ntohs(conn->session));
++	error("Access concentrator used a session value of %x -- the AC is violating RFC 2516", (unsigned int) ntohs(conn->session));
+     }
+ }
+ 
+@@ -578,23 +526,11 @@ discovery(PPPoEConnection *conn)
+ {
+     int padiAttempts = 0;
+     int padrAttempts = 0;
+-    int timeout = PADI_TIMEOUT;
+-
+-    /* Skip discovery and don't open discovery socket? */
+-    if (conn->skipDiscovery && conn->noDiscoverySocket) {
+-	conn->discoveryState = STATE_SESSION;
+-	return;
+-    }
++    int timeout = conn->discoveryTimeout;
+ 
+     conn->discoverySocket =
+ 	openInterface(conn->ifName, Eth_PPPOE_Discovery, conn->myEth);
+ 
+-    /* Skip discovery? */
+-    if (conn->skipDiscovery) {
+-	conn->discoveryState = STATE_SESSION;
+-	return;
+-    }
+-
+     do {
+ 	padiAttempts++;
+ 	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+@@ -607,23 +543,10 @@ discovery(PPPoEConnection *conn)
+ 	conn->discoveryState = STATE_SENT_PADI;
+ 	waitForPADO(conn, timeout);
+ 
+-	/* If we're just probing for access concentrators, don't do
+-	   exponential backoff.  This reduces the time for an unsuccessful
+-	   probe to 15 seconds. */
+-	if (!conn->printACNames) {
+-	    timeout *= 2;
+-	}
+-	if (conn->printACNames && conn->numPADOs) {
+-	    break;
+-	}
++	timeout *= 2;
+     } while (conn->discoveryState == STATE_SENT_PADI);
+ 
+-    /* If we're only printing access concentrator names, we're done */
+-    if (conn->printACNames) {
+-	die(0);
+-    }
+-
+-    timeout = PADI_TIMEOUT;
++    timeout = conn->discoveryTimeout;
+     do {
+ 	padrAttempts++;
+ 	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+@@ -642,4 +565,3 @@ discovery(PPPoEConnection *conn)
+     conn->discoveryState = STATE_SESSION;
+     return;
+ }
+-
+diff --git a/pppd/plugins/rp-pppoe/if.c b/pppd/plugins/rp-pppoe/if.c
+index 4e21762..91e9a57 100644
+--- a/pppd/plugins/rp-pppoe/if.c
++++ b/pppd/plugins/rp-pppoe/if.c
+@@ -14,9 +14,11 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: if.c,v 1.1 2001/12/14 02:55:20 mostrows Exp $";
++"$Id: if.c,v 1.2 2008/06/09 08:34:23 paulus Exp $";
+ 
++#define _GNU_SOURCE 1
+ #include "pppoe.h"
++#include "pppd/pppd.h"
+ 
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+@@ -40,10 +42,6 @@ static char const RCSID[] =
+ #include <sys/ioctl.h>
+ #endif
+ 
+-#ifdef HAVE_SYSLOG_H
+-#include <syslog.h>
+-#endif
+-
+ #include <errno.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -52,55 +50,6 @@ static char const RCSID[] =
+ #include <net/if_arp.h>
+ #endif
+ 
+-#ifdef USE_DLPI
+-
+-#include <limits.h>
+-#include <fcntl.h>
+-#include <stdlib.h>
+-#include <sys/types.h>
+-#include <sys/time.h>
+-#include <sys/stream.h>
+-#include <sys/stropts.h>
+-#include <sys/dlpi.h>
+-#include <sys/bufmod.h>
+-#include <stdio.h>
+-#include <signal.h>
+-#include <stropts.h>
+-
+-/* function declarations */
+-
+-void dlpromisconreq( int fd, u_long  level);
+-void dlinforeq(int fd);
+-void dlunitdatareq(int fd, u_char *addrp, int addrlen, u_long minpri, u_long maxpri, u_char *datap, int datalen);
+-void dlinfoack(int fd, char *bufp);
+-void dlbindreq(int fd, u_long sap, u_long max_conind, u_long service_mode, u_long conn_mgmt, u_long xidtest);
+-void dlattachreq(int fd, u_long ppa);
+-void dlokack(int fd, char *bufp);
+-void dlbindack(int fd, char *bufp);
+-int strioctl(int fd, int cmd, int timout, int len, char *dp);
+-void strgetmsg(int fd, struct strbuf *ctlp, struct strbuf *datap, int *flagsp, char *caller);
+-void sigalrm(int sig);
+-void expecting(int prim, union DL_primitives *dlp);
+-char *dlprim(u_long prim);
+-
+-/* #define DL_DEBUG */
+-
+-static	int     dl_abssaplen;
+-static	int     dl_saplen;
+-static	int 	dl_addrlen;
+-
+-#endif
+-
+-#ifdef USE_BPF
+-#include <net/bpf.h>
+-#include <fcntl.h>
+-
+-unsigned char *bpfBuffer;	/* Packet filter buffer */
+-int bpfLength = 0;		/* Packet filter buffer length */
+-int bpfSize = 0;		/* Number of unread bytes in buffer */
+-int bpfOffset = 0;		/* Current offset in bpfBuffer */
+-#endif
+-
+ /* Initialize frame types to RFC 2516 values.  Some broken peers apparently
+    use different frame types... sigh... */
+ 
+@@ -127,283 +76,11 @@ etherType(PPPoEPacket *packet)
+ {
+     UINT16_t type = (UINT16_t) ntohs(packet->ethHdr.h_proto);
+     if (type != Eth_PPPOE_Discovery && type != Eth_PPPOE_Session) {
+-	syslog(LOG_ERR, "Invalid ether type 0x%x", type);
++	error("Invalid ether type 0x%x", type);
+     }
+     return type;
+ }
+ 
+-#ifdef USE_BPF
+-/**********************************************************************
+-*%FUNCTION: getHWaddr
+-*%ARGUMENTS:
+-* ifname -- name of interface
+-* hwaddr -- buffer for ehthernet address
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Locates the Ethernet hardware address for an interface.
+-***********************************************************************/
+-void
+-getHWaddr(int sock, char const *ifname, unsigned char *hwaddr)
+-{
+-    char inbuf[8192];
+-    const struct sockaddr_dl *sdl;
+-    struct ifconf ifc;
+-    struct ifreq ifreq, *ifr;
+-    int i;
+-    int found = 0;
+-
+-    ifc.ifc_len = sizeof(inbuf);
+-    ifc.ifc_buf = inbuf;
+-    if (ioctl(sock, SIOCGIFCONF, &ifc) < 0) {
+-	fatalSys("SIOCGIFCONF");
+-    }
+-    ifr = ifc.ifc_req;
+-    ifreq.ifr_name[0] = '\0';
+-    for (i = 0; i < ifc.ifc_len; ) {
+-	ifr = (struct ifreq *)((caddr_t)ifc.ifc_req + i);
+-	i += sizeof(ifr->ifr_name) +
+-		    (ifr->ifr_addr.sa_len > sizeof(struct sockaddr)
+-		    ? ifr->ifr_addr.sa_len
+-		    : sizeof(struct sockaddr));
+-	if (ifr->ifr_addr.sa_family == AF_LINK) {
+-	    sdl = (const struct sockaddr_dl *) &ifr->ifr_addr;
+-	    if ((sdl->sdl_type == IFT_ETHER) &&
+-	        (sdl->sdl_alen == ETH_ALEN) &&
+-		!strncmp(ifname, ifr->ifr_name, sizeof(ifr->ifr_name))) {
+-		if (found) {
+-		    char buffer[256];
+-		    sprintf(buffer, "interface %.16s has more than one ethernet address", ifname);
+-		    rp_fatal(buffer);
+-		} else {
+-		    found = 1;
+-	            memcpy(hwaddr, LLADDR(sdl), ETH_ALEN);
+-		}
+-	    }
+-	}
+-    }
+-    if (!found) {
+-	char buffer[256];
+-        sprintf(buffer, "interface %.16s has no ethernet address", ifname);
+-	rp_fatal(buffer);
+-    }
+-}
+-
+-/**********************************************************************
+-*%FUNCTION: initFilter
+-*%ARGUMENTS:
+-* fd -- file descriptor of BSD device
+-* type -- Ethernet frame type (0 for watch mode)
+-* hwaddr -- buffer with ehthernet address
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Initializes the packet filter rules.
+-***********************************************************************/
+-void
+-initFilter(int fd, UINT16_t type, unsigned char *hwaddr)
+-{
+-    /* Packet Filter Instructions:
+-     * Note that the ethernet type names come from "pppoe.h" and are
+-     * used here to maintain consistency with the rest of this file. */
+-    static struct bpf_insn bpfRun[] = {         /* run PPPoE */
+-        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),     /* ethernet type */
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETH_PPPOE_SESSION, 5, 0),
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETH_PPPOE_DISCOVERY, 0, 9),
+-        BPF_STMT(BPF_LD+BPF_W+BPF_ABS, 0),      /* first word of dest. addr */
+-#define PPPOE_BCAST_CMPW 4                     /* offset of word compare */
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0, 0, 2),
+-        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 4),      /* next 1/2 word of dest. */
+-#define PPPOE_BCAST_CMPH 6                     /* offset of 1/2 word compare */
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0, 4, 0),
+-        BPF_STMT(BPF_LD+BPF_W+BPF_ABS, 0),      /* first word of dest. addr */
+-#define PPPOE_FILTER_CMPW 8                     /* offset of word compare */
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0, 0, 3),
+-        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 4),      /* next 1/2 word of dest. */
+-#define PPPOE_FILTER_CMPH 10                    /* offset of 1/rd compare */
+-        BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0, 0, 1),
+-        BPF_STMT(BPF_RET+BPF_K, (u_int) -1),    /* keep packet */
+-        BPF_STMT(BPF_RET+BPF_K, 0),             /* drop packet */
+-    };
+-
+-    /* Fix the potentially varying parts */
+-    bpfRun[1].code = (u_short) BPF_JMP+BPF_JEQ+BPF_K;
+-    bpfRun[1].jt   = 5;
+-    bpfRun[1].jf   = 0;
+-    bpfRun[1].k    = Eth_PPPOE_Session;
+-
+-    bpfRun[2].code = (u_short) BPF_JMP+BPF_JEQ+BPF_K;
+-    bpfRun[2].jt   = 0;
+-    bpfRun[2].jf   = 9;
+-    bpfRun[2].k    = Eth_PPPOE_Discovery;
+-
+-    {
+-      struct bpf_insn bpfInsn[sizeof(bpfRun) / sizeof(bpfRun[0])];
+-      struct bpf_program bpfProgram;
+-      memcpy(bpfInsn, bpfRun, sizeof(bpfRun));
+-      bpfInsn[PPPOE_BCAST_CMPW].k = ((0xff << 24) | (0xff << 16) |
+-                                     (0xff << 8) | 0xff);
+-      bpfInsn[PPPOE_BCAST_CMPH].k = ((0xff << 8) | 0xff);
+-      bpfInsn[PPPOE_FILTER_CMPW].k = ((hwaddr[0] << 24) | (hwaddr[1] << 16) |
+-				      (hwaddr[2] << 8) | hwaddr[3]);
+-      bpfInsn[PPPOE_FILTER_CMPH].k = ((hwaddr[4] << 8) | hwaddr[5]);
+-      bpfProgram.bf_len = (sizeof(bpfInsn) / sizeof(bpfInsn[0]));
+-      bpfProgram.bf_insns = &bpfInsn[0];
+-      
+-      /* Apply the filter */
+-      if (ioctl(fd, BIOCSETF, &bpfProgram) < 0) {
+-	fatalSys("ioctl(BIOCSETF)");
+-      }
+-    }
+-}
+-
+-/**********************************************************************
+-*%FUNCTION: openInterface
+-*%ARGUMENTS:
+-* ifname -- name of interface
+-* type -- Ethernet frame type (0 for any frame type)
+-* hwaddr -- if non-NULL, set to the hardware address
+-*%RETURNS:
+-* A file descriptor for talking with the Ethernet card.  Exits on error.
+-* Note that the Linux version of this routine returns a socket instead.
+-*%DESCRIPTION:
+-* Opens a BPF on an interface for all PPPoE traffic (discovery and
+-* session).  If 'type' is 0, uses promiscuous mode to watch any PPPoE
+-* traffic on this network.
+-***********************************************************************/
+-int
+-openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+-{
+-    static int fd = -1;
+-    char bpfName[32];
+-    u_int optval;
+-    struct bpf_version bpf_ver;
+-    struct ifreq ifr;
+-    int sock;
+-    int i;
+-
+-    /* BSD only opens one socket for both Discovery and Session packets */
+-    if (fd >= 0) {
+-	return fd;
+-    }
+-
+-    /* Find a free BPF device */
+-    for (i = 0; i < 256; i++) {
+-	sprintf(bpfName, "/dev/bpf%d", i);
+-	if (((fd = open(bpfName, O_RDWR, 0)) >= 0) ||
+-	    (errno != EBUSY)) {
+-	    break;
+-	}
+-    }
+-    if (fd < 0) {
+-	switch (errno) {
+-	case EACCES:		/* permission denied */
+-	    {
+-		char buffer[256];
+-		sprintf(buffer, "Cannot open %.32s -- pppoe must be run as root.", bpfName);
+-		rp_fatal(buffer);
+-	    }
+-	    break;
+-	case EBUSY:
+-	case ENOENT:		/* no such file */
+-	    if (i == 0) {
+-		rp_fatal("No /dev/bpf* devices (check your kernel configuration for BPF support)");
+-	    } else {
+-		rp_fatal("All /dev/bpf* devices are in use");
+-	    }
+-	    break;
+-	}
+-	fatalSys(bpfName);
+-    }
+-
+-    if ((sock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0) {
+-	fatalSys("socket");
+-    }
+-
+-    /* Check that the interface is up */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+-    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+-	fatalSys("ioctl(SIOCGIFFLAGS)");
+-    }
+-    if ((ifr.ifr_flags & IFF_UP) == 0) {
+-	char buffer[256];
+-	sprintf(buffer, "Interface %.16s is not up\n", ifname);
+-	rp_fatal(buffer);
+-    }
+-
+-    /* Fill in hardware address and initialize the packet filter rules */
+-    if (hwaddr == NULL) {
+-	rp_fatal("openInterface: no hwaddr arg.");
+-    }
+-    getHWaddr(sock, ifname, hwaddr);
+-    initFilter(fd, type, hwaddr);
+-
+-    /* Sanity check on MTU -- apparently does not work on OpenBSD */
+-#if !defined(__OpenBSD__)
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+-    if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
+-	fatalSys("ioctl(SIOCGIFMTU)");
+-    }
+-    if (ifr.ifr_mtu < ETH_DATA_LEN) {
+-	char buffer[256];
+-	sprintf(buffer, "Interface %.16s has MTU of %d -- should be %d.  You may have serious connection problems.",
+-		ifname, ifr.ifr_mtu, ETH_DATA_LEN);
+-	printErr(buffer);
+-    }
+-#endif
+-
+-    /* done with the socket */
+-    if (close(sock) < 0) {
+-	fatalSys("close");
+-    }
+-
+-    /* Check the BPF version number */
+-    if (ioctl(fd, BIOCVERSION, &bpf_ver) < 0) {
+-	fatalSys("ioctl(BIOCVERSION)");
+-    }
+-    if ((bpf_ver.bv_major != BPF_MAJOR_VERSION) ||
+-        (bpf_ver.bv_minor < BPF_MINOR_VERSION)) {
+-	char buffer[256];
+-	sprintf(buffer, "Unsupported BPF version: %d.%d (kernel: %d.%d)", 
+-			BPF_MAJOR_VERSION, BPF_MINOR_VERSION,
+-			bpf_ver.bv_major, bpf_ver.bv_minor);
+-	rp_fatal(buffer);
+-    }
+-
+-    /* allocate a receive packet buffer */
+-    if (ioctl(fd, BIOCGBLEN, &bpfLength) < 0) {
+-	fatalSys("ioctl(BIOCGBLEN)");
+-    }
+-    if (!(bpfBuffer = (unsigned char *) malloc(bpfLength))) {
+-	rp_fatal("malloc");
+-    }
+-
+-    /* reads should return as soon as there is a packet available */
+-    optval = 1;
+-    if (ioctl(fd, BIOCIMMEDIATE, &optval) < 0) {
+-	fatalSys("ioctl(BIOCIMMEDIATE)");
+-    }
+-
+-    /* Bind the interface to the filter */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+-    if (ioctl(fd, BIOCSETIF, &ifr) < 0) {
+-	char buffer[256];
+-	sprintf(buffer, "ioctl(BIOCSETIF) can't select interface %.16s",
+-		ifname);
+-	rp_fatal(buffer);
+-    }
+-
+-    syslog(LOG_INFO, "Interface=%.16s HWaddr=%02X:%02X:%02X:%02X:%02X:%02X Device=%.32s Buffer size=%d",
+-	   ifname, 
+-	   hwaddr[0], hwaddr[1], hwaddr[2],
+-	   hwaddr[3], hwaddr[4], hwaddr[5],
+-	   bpfName, bpfLength);
+-    return fd;
+-}
+-
+-#endif /* USE_BPF */
+-
+-#ifdef USE_LINUX_PACKET
+ /**********************************************************************
+ *%FUNCTION: openInterface
+ *%ARGUMENTS:
+@@ -442,48 +119,46 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     if ((fd = socket(domain, stype, htons(type))) < 0) {
+ 	/* Give a more helpful message for the common error case */
+ 	if (errno == EPERM) {
+-	    rp_fatal("Cannot create raw socket -- pppoe must be run as root.");
++	    fatal("Cannot create raw socket -- pppoe must be run as root.");
+ 	}
+-	fatalSys("socket");
++	error("Can't open socket for pppoe: %m");
++	return -1;
+     }
+ 
+     if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
+-	fatalSys("setsockopt");
++	error("Can't set socket options for pppoe: %m");
++	close(fd);
++	return -1;
+     }
+ 
+     /* Fill in hardware address */
+     if (hwaddr) {
+ 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+ 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
+-	    fatalSys("ioctl(SIOCGIFHWADDR)");
++	    error("Can't get hardware address for %s: %m", ifname);
++	    close(fd);
++	    return -1;
+ 	}
+ 	memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+ #ifdef ARPHRD_ETHER
+ 	if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
+-	    char buffer[256];
+-	    sprintf(buffer, "Interface %.16s is not Ethernet", ifname);
+-	    rp_fatal(buffer);
++	    warn("Interface %.16s is not Ethernet", ifname);
+ 	}
+ #endif
+ 	if (NOT_UNICAST(hwaddr)) {
+-	    char buffer[256];
+-	    sprintf(buffer,
+-		    "Interface %.16s has broadcast/multicast MAC address??",
+-		    ifname);
+-	    rp_fatal(buffer);
++	    fatal("Can't use interface %.16s: it has broadcast/multicast MAC address",
++		  ifname);
+ 	}
+     }
+ 
+     /* Sanity check on MTU */
+     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+     if (ioctl(fd, SIOCGIFMTU, &ifr) < 0) {
+-	fatalSys("ioctl(SIOCGIFMTU)");
+-    }
+-    if (ifr.ifr_mtu < ETH_DATA_LEN) {
+-	char buffer[256];
+-	sprintf(buffer, "Interface %.16s has MTU of %d -- should be %d.  You may have serious connection problems.",
+-		ifname, ifr.ifr_mtu, ETH_DATA_LEN);
+-	printErr(buffer);
++	error("Can't get MTU for %s: %m", ifname);
++    } else if (ifr.ifr_mtu < ETH_DATA_LEN) {
++	error("Interface %.16s has MTU of %d -- should be at least %d.",
++	      ifname, ifr.ifr_mtu, ETH_DATA_LEN);
++	error("This may cause serious connection problems.");
+     }
+ 
+ #ifdef HAVE_STRUCT_SOCKADDR_LL
+@@ -493,7 +168,9 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ 
+     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+     if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+-	fatalSys("ioctl(SIOCFIGINDEX): Could not get interface index");
++	error("Could not get interface index for %s: %m", ifname);
++	close(fd);
++	return -1;
+     }
+     sa.sll_ifindex = ifr.ifr_ifindex;
+ 
+@@ -503,13 +180,14 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ 
+     /* We're only interested in packets on specified interface */
+     if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0) {
+-	fatalSys("bind");
++	error("Failed to bind to interface %s: %m", ifname);
++	close(fd);
++	return -1;
+     }
+ 
+     return fd;
+ }
+ 
+-#endif /* USE_LINUX */
+ 
+ /***********************************************************************
+ *%FUNCTION: sendPacket
+@@ -525,92 +203,25 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ int
+ sendPacket(PPPoEConnection *conn, int sock, PPPoEPacket *pkt, int size)
+ {
+-#if defined(USE_BPF)
+-    if (write(sock, pkt, size) < 0) {
+-	sysErr("write (sendPacket)");
+-	return -1;
+-    }
+-#elif defined(HAVE_STRUCT_SOCKADDR_LL)
+-    if (send(sock, pkt, size, 0) < 0) {
+-	sysErr("send (sendPacket)");
+-	return -1;
+-    }
+-#else
+-#ifdef USE_DLPI
+-
+-#define ABS(x)          ((x) < 0 ? -(x) : (x))
+-
+-	u_char  addr[MAXDLADDR];
+-	u_char  phys[MAXDLADDR];
+-	u_char  sap[MAXDLADDR];
+-	u_char    xmitbuf[MAXDLBUF];
+-	int	data_size;
+-
+-	short	tmp_sap;
+-
+-	tmp_sap = htons(pkt->ethHdr.h_proto); 
+-	data_size = size - sizeof(struct ethhdr); 
+-
+-	memcpy((char *)phys, (char *)pkt->ethHdr.h_dest, ETHERADDRL);
+-	memcpy((char *)sap,  (char *)&tmp_sap, sizeof(ushort_t));
+-	memcpy((char *)xmitbuf, (char *)pkt + sizeof(struct ethhdr), data_size); 
+-
+-	if (dl_saplen > 0) {  /* order is sap+phys */
+-		(void) memcpy((char*)addr, (char*)&sap, dl_abssaplen);
+-		(void) memcpy((char*)addr+dl_abssaplen, (char*)phys, ETHERADDRL);
+-	} else {        /* order is phys+sap */
+-		(void) memcpy((char*)addr, (char*)phys, ETHERADDRL);
+-		(void) memcpy((char*)addr+ETHERADDRL, (char*)&sap, dl_abssaplen);
+-	}
+-
+-#ifdef DL_DEBUG
+-	printf("%02x:%02x:%02x:%02x:%02x:%02x %02x:%02x\n", 
+-		addr[0],addr[1],addr[2],addr[3],addr[4],addr[5],
+-		addr[6],addr[7]);
+-#endif
+-
+-	dlunitdatareq(sock, addr, dl_addrlen, 0, 0, xmitbuf, data_size);
+-
+-
++    int err;
+ 
++    if (debug)
++	pppoe_log_packet("Send ", pkt);
++#if defined(HAVE_STRUCT_SOCKADDR_LL)
++    err = send(sock, pkt, size, 0);
+ #else
+     struct sockaddr sa;
+ 
+-    if (!conn) {
+-	rp_fatal("relay and server not supported on Linux 2.0 kernels");
+-    }
+     strcpy(sa.sa_data, conn->ifName);
+-    if (sendto(sock, pkt, size, 0, &sa, sizeof(sa)) < 0) {
+-	sysErr("sendto (sendPacket)");
++    err = sendto(sock, pkt, size, 0, &sa, sizeof(sa));
++#endif
++    if (err < 0) {
++	error("error sending pppoe packet: %m");
+ 	return -1;
+     }
+-#endif
+-#endif
+     return 0;
+ }
+ 
+-#ifdef USE_BPF
+-/***********************************************************************
+-*%FUNCTION: clearPacketHeader
+-*%ARGUMENTS:
+-* pkt -- packet that needs its head clearing
+-*%RETURNS:
+-* nothing
+-*%DESCRIPTION:
+-* Clears a PPPoE packet header after a truncated packet has been
+-* received.  Insures that the packet will fail any integrity tests
+-* and will be discarded by upper level routines.  Also resets the
+-* bpfSize and bpfOffset variables to force a new read on the next
+-* call to receivePacket().
+-***********************************************************************/
+-void
+-clearPacketHeader(PPPoEPacket *pkt)
+-{
+-    bpfSize = bpfOffset = 0;
+-    memset(pkt, 0, HDR_SIZE);
+-}
+-#endif
+-
+ /***********************************************************************
+ *%FUNCTION: receivePacket
+ *%ARGUMENTS:
+@@ -625,473 +236,11 @@ clearPacketHeader(PPPoEPacket *pkt)
+ int
+ receivePacket(int sock, PPPoEPacket *pkt, int *size)
+ {
+-#ifdef USE_BPF
+-    struct bpf_hdr hdr;
+-    int seglen, copylen;
+-
+-    if (bpfSize <= 0) {
+-	bpfOffset = 0;
+-	if ((bpfSize = read(sock, bpfBuffer, bpfLength)) < 0) {
+-	    sysErr("read (receivePacket)");
+-	    return -1;
+-	}
+-    }
+-    if (bpfSize < sizeof(hdr)) {
+-	syslog(LOG_ERR, "Truncated bpf packet header: len=%d", bpfSize);
+-	clearPacketHeader(pkt);		/* resets bpfSize and bpfOffset */
+-	return 0;
+-    }
+-    memcpy(&hdr, bpfBuffer + bpfOffset, sizeof(hdr));
+-    if (hdr.bh_caplen != hdr.bh_datalen) {
+-	syslog(LOG_ERR, "Truncated bpf packet: caplen=%d, datalen=%d",
+-	       hdr.bh_caplen, hdr.bh_datalen);
+-	clearPacketHeader(pkt);		/* resets bpfSize and bpfOffset */
+-	return 0;
+-    }
+-    seglen = hdr.bh_hdrlen + hdr.bh_caplen;
+-    if (seglen > bpfSize) {
+-	syslog(LOG_ERR, "Truncated bpf packet: seglen=%d, bpfSize=%d",
+-	       seglen, bpfSize);
+-	clearPacketHeader(pkt);		/* resets bpfSize and bpfOffset */
+-	return 0;
+-    }
+-    seglen = BPF_WORDALIGN(seglen);
+-    *size = copylen = ((hdr.bh_caplen < sizeof(PPPoEPacket)) ?
+-			hdr.bh_caplen : sizeof(PPPoEPacket));
+-    memcpy(pkt, bpfBuffer + bpfOffset + hdr.bh_hdrlen, copylen);
+-    if (seglen >= bpfSize) {
+-	bpfSize = bpfOffset = 0;
+-    } else {
+-	bpfSize -= seglen;
+-	bpfOffset += seglen;
+-    }
+-#else
+-#ifdef USE_DLPI
+-	struct strbuf data; 
+-	int flags = 0; 	
+-	int retval; 
+-
+-	data.buf = (char *) pkt; 
+-	data.maxlen = MAXDLBUF; 
+-	data.len = 0; 
+-	
+-	if ((retval = getmsg(sock, NULL, &data, &flags)) < 0) {
+-	    sysErr("read (receivePacket)");
+-	    return -1;
+-	}
+-
+-	*size = data.len; 
+-
+-#else
+     if ((*size = recv(sock, pkt, sizeof(PPPoEPacket), 0)) < 0) {
+-	sysErr("recv (receivePacket)");
++	error("error receiving pppoe packet: %m");
+ 	return -1;
+     }
+-#endif
+-#endif
++    if (debug)
++	pppoe_log_packet("Recv ", pkt);
+     return 0;
+ }
+-
+-#ifdef USE_DLPI
+-/**********************************************************************
+-*%FUNCTION: openInterface
+-*%ARGUMENTS:
+-* ifname -- name of interface
+-* type -- Ethernet frame type
+-* hwaddr -- if non-NULL, set to the hardware address
+-*%RETURNS:
+-* A raw socket for talking to the Ethernet card.  Exits on error.
+-*%DESCRIPTION:
+-* Opens a raw Ethernet socket
+-***********************************************************************/
+-int
+-openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+-{
+-    int fd;
+-    long buf[MAXDLBUF]; 
+-
+-	union   DL_primitives   *dlp;
+-
+-    char base_dev[PATH_MAX]; 
+-    int ppa; 
+-
+-    if(strlen(ifname) > PATH_MAX) {
+-	rp_fatal("socket: string to long"); 
+-    }
+-
+-    ppa = atoi(&ifname[strlen(ifname)-1]);
+-    strncpy(base_dev, ifname, PATH_MAX); 
+-    base_dev[strlen(base_dev)-1] = '\0'; 
+-
+-/* rearranged order of DLPI code - delphys 20010803 */
+-    dlp = (union DL_primitives*) buf;
+-
+-    if (( fd = open(base_dev, O_RDWR)) < 0) {
+-	/* Give a more helpful message for the common error case */
+-	if (errno == EPERM) {
+-	    rp_fatal("Cannot create raw socket -- pppoe must be run as root.");
+-	}
+-	fatalSys("socket");
+-    }
+-
+-/* rearranged order of DLPI code - delphys 20010803 */
+-    dlattachreq(fd, ppa); 
+-    dlokack(fd, (char *)buf);
+-
+-    dlbindreq(fd, type, 0, DL_CLDLS, 0, 0);
+-    dlbindack(fd, (char *)buf);
+-
+-    dlinforeq(fd);
+-    dlinfoack(fd, (char *)buf);
+-
+-    dl_abssaplen = ABS(dlp->info_ack.dl_sap_length);
+-    dl_saplen = dlp->info_ack.dl_sap_length;
+-    if (ETHERADDRL != (dlp->info_ack.dl_addr_length - dl_abssaplen))
+-	fatalSys("invalid destination physical address length");
+-    dl_addrlen = dl_abssaplen + ETHERADDRL;
+-
+-/* ethernet address retrieved as part of DL_INFO_ACK - delphys 20010803 */
+-    memcpy(hwaddr, (u_char*)((char*)(dlp) + (int)(dlp->info_ack.dl_addr_offset)), ETHERADDRL);
+-
+-    if ( strioctl(fd, DLIOCRAW, -1, 0, NULL) < 0 ) { 
+-	fatalSys("DLIOCRAW"); 
+-    }
+-
+-    if (ioctl(fd, I_FLUSH, FLUSHR) < 0) fatalSys("I_FLUSH");
+-
+-    return fd;
+-}
+-
+-/* cloned from dlcommon.c */
+-
+-void dlpromisconreq(int fd, u_long level)
+-{
+-        dl_promiscon_req_t      promiscon_req;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        promiscon_req.dl_primitive = DL_PROMISCON_REQ;
+-        promiscon_req.dl_level = level;
+-
+-        ctl.maxlen = 0;
+-        ctl.len = sizeof (promiscon_req);
+-        ctl.buf = (char *) &promiscon_req;
+-
+-        flags = 0;
+-
+-        if (putmsg(fd, &ctl, (struct strbuf*) NULL, flags) < 0)
+-                fatalSys("dlpromiscon:  putmsg");
+-
+-}
+-
+-void dlinforeq(int fd)
+-{
+-        dl_info_req_t   info_req;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        info_req.dl_primitive = DL_INFO_REQ;
+-
+-        ctl.maxlen = 0;
+-        ctl.len = sizeof (info_req);
+-        ctl.buf = (char *) &info_req;
+-
+-        flags = RS_HIPRI;
+-
+-        if (putmsg(fd, &ctl, (struct strbuf*) NULL, flags) < 0)
+-                fatalSys("dlinforeq:  putmsg");
+-}
+-
+-void dlunitdatareq(int fd, u_char *addrp, int addrlen, u_long minpri, u_long maxpri, u_char *datap, int datalen)
+-{
+-        long    buf[MAXDLBUF];
+-        union   DL_primitives   *dlp;
+-        struct  strbuf  data, ctl;
+-
+-        dlp = (union DL_primitives*) buf;
+-
+-        dlp->unitdata_req.dl_primitive = DL_UNITDATA_REQ;
+-        dlp->unitdata_req.dl_dest_addr_length = addrlen;
+-        dlp->unitdata_req.dl_dest_addr_offset = sizeof (dl_unitdata_req_t);
+-        dlp->unitdata_req.dl_priority.dl_min = minpri;
+-        dlp->unitdata_req.dl_priority.dl_max = maxpri;
+-
+-        (void) memcpy(OFFADDR(dlp, sizeof (dl_unitdata_req_t)), addrp, addrlen);
+-
+-        ctl.maxlen = 0;
+-        ctl.len = sizeof (dl_unitdata_req_t) + addrlen;
+-        ctl.buf = (char *) buf;
+-
+-        data.maxlen = 0;
+-        data.len = datalen;
+-        data.buf = (char *) datap;
+-
+-        if (putmsg(fd, &ctl, &data, 0) < 0)
+-                fatalSys("dlunitdatareq:  putmsg");
+-}
+-
+-void dlinfoack(int fd, char *bufp)
+-{
+-        union   DL_primitives   *dlp;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        ctl.maxlen = MAXDLBUF;
+-        ctl.len = 0;
+-        ctl.buf = bufp;
+-
+-        strgetmsg(fd, &ctl, (struct strbuf*)NULL, &flags, "dlinfoack");
+-
+-        dlp = (union DL_primitives *) ctl.buf;
+-
+-        expecting(DL_INFO_ACK, dlp);
+-
+-        if (ctl.len < sizeof (dl_info_ack_t)) {
+-		char buffer[256];
+-		sprintf(buffer, "dlinfoack:  response ctl.len too short:  %d", ctl.len); 
+-                rp_fatal(buffer); 
+-	}
+-
+-        if (flags != RS_HIPRI)
+-                rp_fatal("dlinfoack:  DL_INFO_ACK was not M_PCPROTO");
+-
+-        if (ctl.len < sizeof (dl_info_ack_t)) {
+-		char buffer[256];
+-		sprintf(buffer, "dlinfoack:  short response ctl.len:  %d", ctl.len); 
+-		rp_fatal(buffer); 
+-	}
+-}
+-
+-void dlbindreq(int fd, u_long sap, u_long max_conind, u_long service_mode, u_long conn_mgmt, u_long xidtest)
+-{
+-        dl_bind_req_t   bind_req;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        bind_req.dl_primitive = DL_BIND_REQ;
+-        bind_req.dl_sap = sap;
+-        bind_req.dl_max_conind = max_conind;
+-        bind_req.dl_service_mode = service_mode;
+-        bind_req.dl_conn_mgmt = conn_mgmt;
+-        bind_req.dl_xidtest_flg = xidtest;
+-
+-        ctl.maxlen = 0;
+-        ctl.len = sizeof (bind_req);
+-        ctl.buf = (char *) &bind_req;
+-
+-        flags = 0;
+-
+-        if (putmsg(fd, &ctl, (struct strbuf*) NULL, flags) < 0)
+-                fatalSys("dlbindreq:  putmsg");
+-}
+-
+-void dlattachreq(int fd, u_long ppa)
+-{
+-        dl_attach_req_t attach_req;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        attach_req.dl_primitive = DL_ATTACH_REQ;
+-        attach_req.dl_ppa = ppa;
+-
+-        ctl.maxlen = 0;
+-        ctl.len = sizeof (attach_req);
+-        ctl.buf = (char *) &attach_req;
+-
+-        flags = 0;
+-
+-        if (putmsg(fd, &ctl, (struct strbuf*) NULL, flags) < 0)
+-                fatalSys("dlattachreq:  putmsg");
+-}
+-
+-void dlokack(int fd, char *bufp)
+-{
+-        union   DL_primitives   *dlp;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        ctl.maxlen = MAXDLBUF;
+-        ctl.len = 0;
+-        ctl.buf = bufp;
+-
+-        strgetmsg(fd, &ctl, (struct strbuf*)NULL, &flags, "dlokack");
+-
+-        dlp = (union DL_primitives *) ctl.buf;
+-
+-        expecting(DL_OK_ACK, dlp);
+-
+-        if (ctl.len < sizeof (dl_ok_ack_t)) { 
+-		char buffer[256];
+-		sprintf(buffer, "dlokack:  response ctl.len too short:  %d", ctl.len);
+-		rp_fatal(buffer); 
+-	}
+-
+-        if (flags != RS_HIPRI)
+-                rp_fatal("dlokack:  DL_OK_ACK was not M_PCPROTO");
+-
+-        if (ctl.len < sizeof (dl_ok_ack_t)) {
+-		char buffer[256]; 
+-		sprintf(buffer, "dlokack:  short response ctl.len:  %d", ctl.len);
+-		rp_fatal(buffer); 
+-	}
+-}
+-
+-void dlbindack(int fd, char *bufp)
+-{
+-        union   DL_primitives   *dlp;
+-        struct  strbuf  ctl;
+-        int     flags;
+-
+-        ctl.maxlen = MAXDLBUF;
+-        ctl.len = 0;
+-        ctl.buf = bufp;
+-
+-        strgetmsg(fd, &ctl, (struct strbuf*)NULL, &flags, "dlbindack");
+-
+-        dlp = (union DL_primitives *) ctl.buf;
+-
+-        expecting(DL_BIND_ACK, dlp);
+-
+-        if (flags != RS_HIPRI)
+-                rp_fatal("dlbindack:  DL_OK_ACK was not M_PCPROTO");
+-
+-        if (ctl.len < sizeof (dl_bind_ack_t)) {
+-		char buffer[256];
+-		sprintf(buffer, "dlbindack:  short response ctl.len:  %d", ctl.len);
+-		rp_fatal(buffer); 
+-	}
+-}
+-
+-int strioctl(int fd, int cmd, int timout, int len, char *dp)
+-{
+-        struct  strioctl        sioc;
+-        int     rc;
+-
+-        sioc.ic_cmd = cmd;
+-        sioc.ic_timout = timout;
+-        sioc.ic_len = len;
+-        sioc.ic_dp = dp;
+-        rc = ioctl(fd, I_STR, &sioc);
+-
+-        if (rc < 0)
+-                return (rc);
+-        else
+-                return (sioc.ic_len);
+-}
+-
+-void strgetmsg(int fd, struct strbuf *ctlp, struct strbuf *datap, int *flagsp, char *caller)
+-{
+-        int     rc;
+-        static  char    errmsg[80];
+-
+-        /*
+-         * Start timer.
+-         */
+-        (void) signal(SIGALRM, sigalrm);
+-        if (alarm(MAXWAIT) < 0) {
+-                (void) sprintf(errmsg, "%s:  alarm", caller);
+-                fatalSys(errmsg);
+-        }
+-
+-        /*
+-         * Set flags argument and issue getmsg().
+-         */
+-        *flagsp = 0;
+-        if ((rc = getmsg(fd, ctlp, datap, flagsp)) < 0) {
+-                (void) sprintf(errmsg, "%s:  getmsg", caller);
+-                fatalSys(errmsg);
+-        }
+-
+-        /*
+-         * Stop timer.
+-         */
+-        if (alarm(0) < 0) {
+-                (void) sprintf(errmsg, "%s:  alarm", caller);
+-                fatalSys(errmsg);
+-        }
+-
+-        /*
+-         * Check for MOREDATA and/or MORECTL.
+-         */
+-        if ((rc & (MORECTL | MOREDATA)) == (MORECTL | MOREDATA)) {
+-		char buffer[256]; 
+-		sprintf(buffer, "%s:  MORECTL|MOREDATA", caller);
+-		rp_fatal(buffer);
+-	}
+-                
+-        if (rc & MORECTL) {
+-		char buffer[256];
+-		sprintf(buffer, "%s:  MORECTL", caller);
+-		rp_fatal(buffer); 
+-	}
+-        
+-        if (rc & MOREDATA) {
+-		char buffer[256]; 
+-		sprintf(buffer, "%s:  MOREDATA", caller);
+-		rp_fatal(buffer);
+-	}
+-
+-        /*
+-         * Check for at least sizeof (long) control data portion.
+-         */
+-        if (ctlp->len < sizeof (long)) {
+-		char buffer[256]; 
+-		sprintf(buffer, "getmsg:  control portion length < sizeof (long):  %d", ctlp->len);
+-		rp_fatal(buffer); 
+-	}
+-}
+-
+-void sigalrm(int sig)
+-{
+-        (void) rp_fatal("sigalrm:  TIMEOUT");
+-}
+-
+-void expecting(int prim, union DL_primitives *dlp)
+-{
+-        if (dlp->dl_primitive != (u_long)prim) {
+-		char buffer[256]; 
+-		sprintf(buffer, "expected %s got %s", dlprim(prim), dlprim(dlp->dl_primitive));
+-		rp_fatal(buffer); 
+-		exit(1); 
+-	}
+-}
+-
+-char *dlprim(u_long prim)
+-{
+-        static  char    primbuf[80];
+-
+-        switch ((int)prim) {
+-                CASERET(DL_INFO_REQ);
+-                CASERET(DL_INFO_ACK);
+-                CASERET(DL_ATTACH_REQ);
+-                CASERET(DL_DETACH_REQ);
+-                CASERET(DL_BIND_REQ);
+-                CASERET(DL_BIND_ACK);
+-                CASERET(DL_UNBIND_REQ);
+-                CASERET(DL_OK_ACK);
+-                CASERET(DL_ERROR_ACK);
+-                CASERET(DL_SUBS_BIND_REQ);
+-                CASERET(DL_SUBS_BIND_ACK);
+-                CASERET(DL_UNITDATA_REQ);
+-                CASERET(DL_UNITDATA_IND);
+-                CASERET(DL_UDERROR_IND);
+-                CASERET(DL_UDQOS_REQ);
+-                CASERET(DL_CONNECT_REQ);
+-                CASERET(DL_CONNECT_IND);
+-                CASERET(DL_CONNECT_RES);
+-                CASERET(DL_CONNECT_CON);
+-                CASERET(DL_TOKEN_REQ);
+-                CASERET(DL_TOKEN_ACK);
+-                CASERET(DL_DISCONNECT_REQ);
+-                CASERET(DL_DISCONNECT_IND);
+-                CASERET(DL_RESET_REQ);
+-                CASERET(DL_RESET_IND);
+-                CASERET(DL_RESET_RES);
+-                CASERET(DL_RESET_CON);
+-                default:
+-                        (void) sprintf(primbuf, "unknown primitive 0x%lx", prim);
+-                        return (primbuf);
+-        }
+-}
+-
+-#endif /* USE_DLPI */
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index b84a6af..2968e72 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -19,10 +19,11 @@
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
++*
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: plugin.c,v 1.15 2006/05/29 23:29:16 paulus Exp $";
++"$Id: plugin.c,v 1.16 2008/06/09 08:34:23 paulus Exp $";
+ 
+ #define _GNU_SOURCE 1
+ #include "pppoe.h"
+@@ -32,10 +33,9 @@ static char const RCSID[] =
+ #include "pppd/lcp.h"
+ #include "pppd/ipcp.h"
+ #include "pppd/ccp.h"
+-#include "pppd/pathnames.h"
++/* #include "pppd/pathnames.h" */
+ 
+ #include <linux/types.h>
+-#include <syslog.h>
+ #include <sys/ioctl.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+@@ -48,9 +48,13 @@ static char const RCSID[] =
+ #include <signal.h>
+ #include <net/ethernet.h>
+ #include <net/if_arp.h>
+-#include "ppp_defs.h"
+-#include "if_ppp.h"
+-#include "if_pppox.h"
++#include <linux/ppp_defs.h>
++#include <linux/if_ppp.h>
++#include <linux/if_pppox.h>
++
++#ifndef _ROOT_PATH
++#define _ROOT_PATH ""
++#endif
+ 
+ #define _PATH_ETHOPT         _ROOT_PATH "/etc/ppp/options."
+ 
+@@ -80,7 +84,7 @@ static option_t Options[] = {
+       "Be verbose about discovered access concentrators"},
+     { NULL }
+ };
+-
++int (*OldDevnameHook)(char *cmd, char **argv, int doit) = NULL;
+ static PPPoEConnection *conn = NULL;
+ 
+ /**********************************************************************
+@@ -97,20 +101,17 @@ PPPOEInitDevice(void)
+ {
+     conn = malloc(sizeof(PPPoEConnection));
+     if (!conn) {
+-	fatal("Could not allocate memory for PPPoE session");
++	novm("PPPoE session data");
+     }
+     memset(conn, 0, sizeof(PPPoEConnection));
+-    if (acName) {
+-	SET_STRING(conn->acName, acName);
+-    }
+-    if (pppd_pppoe_service) {
+-	SET_STRING(conn->serviceName, pppd_pppoe_service);
+-    }
+-    SET_STRING(conn->ifName, devnam);
++    conn->acName = acName;
++    conn->serviceName = pppd_pppoe_service;
++    conn->ifName = devnam;
+     conn->discoverySocket = -1;
+     conn->sessionSocket = -1;
+     conn->useHostUniq = 1;
+     conn->printACNames = printACNames;
++    conn->discoveryTimeout = PADI_TIMEOUT;
+     return 1;
+ }
+ 
+@@ -155,7 +156,8 @@ PPPOEConnectDevice(void)
+     /* Make the session socket */
+     conn->sessionSocket = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
+     if (conn->sessionSocket < 0) {
+-	fatal("Failed to create PPPoE socket: %m");
++	error("Failed to create PPPoE socket: %m");
++	goto errout;
+     }
+     sp.sa_family = AF_PPPOX;
+     sp.sa_protocol = PX_PROTO_OE;
+@@ -172,13 +174,33 @@ PPPOEConnectDevice(void)
+ 	    (unsigned) conn->peerEth[4],
+ 	    (unsigned) conn->peerEth[5]);
+ 
++    warn("Connected to %02X:%02X:%02X:%02X:%02X:%02X via interface %s",
++	 (unsigned) conn->peerEth[0],
++	 (unsigned) conn->peerEth[1],
++	 (unsigned) conn->peerEth[2],
++	 (unsigned) conn->peerEth[3],
++	 (unsigned) conn->peerEth[4],
++	 (unsigned) conn->peerEth[5],
++	 conn->ifName);
++
++    script_setenv("MACREMOTE", remote_number, 0);
++
+     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+ 		sizeof(struct sockaddr_pppox)) < 0) {
+-	fatal("Failed to connect PPPoE socket: %d %m", errno);
+-	return -1;
++	error("Failed to connect PPPoE socket: %d %m", errno);
++	close(conn->sessionSocket);
++	goto errout;
+     }
+ 
+     return conn->sessionSocket;
++
++ errout:
++    if (conn->discoverySocket >= 0) {
++	sendPADT(conn, NULL);
++	close(conn->discoverySocket);
++	conn->discoverySocket = -1;
++    }
++    return -1;
+ }
+ 
+ static void
+@@ -213,21 +235,20 @@ PPPOEDisconnectDevice(void)
+     memcpy(sp.sa_addr.pppoe.dev, conn->ifName, IFNAMSIZ);
+     memcpy(sp.sa_addr.pppoe.remote, conn->peerEth, ETH_ALEN);
+     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+-		sizeof(struct sockaddr_pppox)) < 0) {
+-	fatal("Failed to disconnect PPPoE socket: %d %m", errno);
+-	return;
+-    }
++		sizeof(struct sockaddr_pppox)) < 0)
++	error("Failed to disconnect PPPoE socket: %d %m", errno);
+     close(conn->sessionSocket);
+     /* don't send PADT?? */
+-    close(conn->discoverySocket);
++    if (conn->discoverySocket >= 0)
++	close(conn->discoverySocket);
+ }
+ 
+ static void
+ PPPOEDeviceOptions(void)
+ {
+     char buf[256];
+-    snprintf(buf, 256, _PATH_ETHOPT "%s",devnam);
+-    if(!options_from_file(buf, 0, 0, 1))
++    snprintf(buf, 256, _PATH_ETHOPT "%s", devnam);
++    if (!options_from_file(buf, 0, 0, 1))
+ 	exit(EXIT_OPTION_ERROR);
+ 
+ }
+@@ -325,60 +346,6 @@ plugin_init(void)
+ 	 RP_VERSION, VERSION);
+ }
+ 
+-/**********************************************************************
+-*%FUNCTION: fatalSys
+-*%ARGUMENTS:
+-* str -- error message
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Prints a message plus the errno value to stderr and syslog and exits.
+-***********************************************************************/
+-void
+-fatalSys(char const *str)
+-{
+-    char buf[1024];
+-    int i = errno;
+-    sprintf(buf, "%.256s: %.256s", str, strerror(i));
+-    printErr(buf);
+-    sprintf(buf, "RP-PPPoE: %.256s: %.256s", str, strerror(i));
+-    sendPADT(conn, buf);
+-    exit(1);
+-}
+-
+-/**********************************************************************
+-*%FUNCTION: rp_fatal
+-*%ARGUMENTS:
+-* str -- error message
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Prints a message to stderr and syslog and exits.
+-***********************************************************************/
+-void
+-rp_fatal(char const *str)
+-{
+-    char buf[1024];
+-    printErr(str);
+-    sprintf(buf, "RP-PPPoE: %.256s", str);
+-    sendPADT(conn, buf);
+-    exit(1);
+-}
+-/**********************************************************************
+-*%FUNCTION: sysErr
+-*%ARGUMENTS:
+-* str -- error message
+-*%RETURNS:
+-* Nothing
+-*%DESCRIPTION:
+-* Prints a message plus the errno value to syslog.
+-***********************************************************************/
+-void
+-sysErr(char const *str)
+-{
+-    rp_fatal(str);
+-}
+-
+ void pppoe_check_options(void)
+ {
+     lcp_allowoptions[0].neg_accompression = 0;
+@@ -406,15 +373,15 @@ void pppoe_check_options(void)
+ }
+ 
+ struct channel pppoe_channel = {
+-    options: Options,
+-    process_extra_options: &PPPOEDeviceOptions,
+-    check_options: pppoe_check_options,
+-    connect: &PPPOEConnectDevice,
+-    disconnect: &PPPOEDisconnectDevice,
+-    establish_ppp: &generic_establish_ppp,
+-    disestablish_ppp: &generic_disestablish_ppp,
+-    send_config: NULL,
+-    recv_config: &PPPOERecvConfig,
+-    close: NULL,
+-    cleanup: NULL
++    .options = Options,
++    .process_extra_options = &PPPOEDeviceOptions,
++    .check_options = pppoe_check_options,
++    .connect = &PPPOEConnectDevice,
++    .disconnect = &PPPOEDisconnectDevice,
++    .establish_ppp = &generic_establish_ppp,
++    .disestablish_ppp = &generic_disestablish_ppp,
++    .send_config = NULL,
++    .recv_config = &PPPOERecvConfig,
++    .close = NULL,
++    .cleanup = NULL
+ };
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index bfb8706..318f858 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -17,6 +17,36 @@
+ 
+ #include "pppoe.h"
+ 
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
++
++#ifdef HAVE_NETPACKET_PACKET_H
++#include <netpacket/packet.h>
++#elif defined(HAVE_LINUX_IF_PACKET_H)
++#include <linux/if_packet.h>
++#endif
++
++#ifdef HAVE_NET_ETHERNET_H
++#include <net/ethernet.h>
++#endif
++
++#ifdef HAVE_ASM_TYPES_H
++#include <asm/types.h>
++#endif
++
++#ifdef HAVE_SYS_IOCTL_H
++#include <sys/ioctl.h>
++#endif
++
++#include <errno.h>
++#include <stdlib.h>
++#include <string.h>
++
++#ifdef HAVE_NET_IF_ARP_H
++#include <net/if_arp.h>
++#endif
++
+ char *xstrdup(const char *s);
+ void usage(void);
+ 
+@@ -25,6 +55,584 @@ void die(int status)
+ 	exit(status);
+ }
+ 
++/* Initialize frame types to RFC 2516 values.  Some broken peers apparently
++   use different frame types... sigh... */
++
++UINT16_t Eth_PPPOE_Discovery = ETH_PPPOE_DISCOVERY;
++UINT16_t Eth_PPPOE_Session   = ETH_PPPOE_SESSION;
++
++/**********************************************************************
++*%FUNCTION: etherType
++*%ARGUMENTS:
++* packet -- a received PPPoE packet
++*%RETURNS:
++* ethernet packet type (see /usr/include/net/ethertypes.h)
++*%DESCRIPTION:
++* Checks the ethernet packet header to determine its type.
++* We should only be receveing DISCOVERY and SESSION types if the BPF
++* is set up correctly.  Logs an error if an unexpected type is received.
++* Note that the ethernet type names come from "pppoe.h" and the packet
++* packet structure names use the LINUX dialect to maintain consistency
++* with the rest of this file.  See the BSD section of "pppoe.h" for
++* translations of the data structure names.
++***********************************************************************/
++UINT16_t
++etherType(PPPoEPacket *packet)
++{
++    UINT16_t type = (UINT16_t) ntohs(packet->ethHdr.h_proto);
++    if (type != Eth_PPPOE_Discovery && type != Eth_PPPOE_Session) {
++	fprintf(stderr, "Invalid ether type 0x%x\n", type);
++    }
++    return type;
++}
++
++/**********************************************************************
++*%FUNCTION: openInterface
++*%ARGUMENTS:
++* ifname -- name of interface
++* type -- Ethernet frame type
++* hwaddr -- if non-NULL, set to the hardware address
++*%RETURNS:
++* A raw socket for talking to the Ethernet card.  Exits on error.
++*%DESCRIPTION:
++* Opens a raw Ethernet socket
++***********************************************************************/
++int
++openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
++{
++    int optval=1;
++    int fd;
++    struct ifreq ifr;
++    int domain, stype;
++
++#ifdef HAVE_STRUCT_SOCKADDR_LL
++    struct sockaddr_ll sa;
++#else
++    struct sockaddr sa;
++#endif
++
++    memset(&sa, 0, sizeof(sa));
++
++#ifdef HAVE_STRUCT_SOCKADDR_LL
++    domain = PF_PACKET;
++    stype = SOCK_RAW;
++#else
++    domain = PF_INET;
++    stype = SOCK_PACKET;
++#endif
++
++    if ((fd = socket(domain, stype, htons(type))) < 0) {
++	/* Give a more helpful message for the common error case */
++	if (errno == EPERM) {
++	    rp_fatal("Cannot create raw socket -- pppoe must be run as root.");
++	}
++	fatalSys("socket");
++    }
++
++    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
++	fatalSys("setsockopt");
++    }
++
++    /* Fill in hardware address */
++    if (hwaddr) {
++	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
++	    fatalSys("ioctl(SIOCGIFHWADDR)");
++	}
++	memcpy(hwaddr, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
++#ifdef ARPHRD_ETHER
++	if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
++	    char buffer[256];
++	    sprintf(buffer, "Interface %.16s is not Ethernet", ifname);
++	    rp_fatal(buffer);
++	}
++#endif
++	if (NOT_UNICAST(hwaddr)) {
++	    char buffer[256];
++	    sprintf(buffer,
++		    "Interface %.16s has broadcast/multicast MAC address??",
++		    ifname);
++	    rp_fatal(buffer);
++	}
++    }
++
++    /* Sanity check on MTU */
++    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    if (ioctl(fd, SIOCGIFMTU, &ifr) < 0) {
++	fatalSys("ioctl(SIOCGIFMTU)");
++    }
++    if (ifr.ifr_mtu < ETH_DATA_LEN) {
++	fprintf(stderr, "Interface %.16s has MTU of %d -- should be %d.\n",
++	      ifname, ifr.ifr_mtu, ETH_DATA_LEN);
++	fprintf(stderr, "You may have serious connection problems.\n");
++    }
++
++#ifdef HAVE_STRUCT_SOCKADDR_LL
++    /* Get interface index */
++    sa.sll_family = AF_PACKET;
++    sa.sll_protocol = htons(type);
++
++    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
++	fatalSys("ioctl(SIOCFIGINDEX): Could not get interface index");
++    }
++    sa.sll_ifindex = ifr.ifr_ifindex;
++
++#else
++    strcpy(sa.sa_data, ifname);
++#endif
++
++    /* We're only interested in packets on specified interface */
++    if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0) {
++	fatalSys("bind");
++    }
++
++    return fd;
++}
++
++
++/***********************************************************************
++*%FUNCTION: sendPacket
++*%ARGUMENTS:
++* sock -- socket to send to
++* pkt -- the packet to transmit
++* size -- size of packet (in bytes)
++*%RETURNS:
++* 0 on success; -1 on failure
++*%DESCRIPTION:
++* Transmits a packet
++***********************************************************************/
++int
++sendPacket(PPPoEConnection *conn, int sock, PPPoEPacket *pkt, int size)
++{
++#if defined(HAVE_STRUCT_SOCKADDR_LL)
++    if (send(sock, pkt, size, 0) < 0) {
++	sysErr("send (sendPacket)");
++	return -1;
++    }
++#else
++    struct sockaddr sa;
++
++    if (!conn) {
++	rp_fatal("relay and server not supported on Linux 2.0 kernels");
++    }
++    strcpy(sa.sa_data, conn->ifName);
++    if (sendto(sock, pkt, size, 0, &sa, sizeof(sa)) < 0) {
++	sysErr("sendto (sendPacket)");
++	return -1;
++    }
++#endif
++    return 0;
++}
++
++/***********************************************************************
++*%FUNCTION: receivePacket
++*%ARGUMENTS:
++* sock -- socket to read from
++* pkt -- place to store the received packet
++* size -- set to size of packet in bytes
++*%RETURNS:
++* >= 0 if all OK; < 0 if error
++*%DESCRIPTION:
++* Receives a packet
++***********************************************************************/
++int
++receivePacket(int sock, PPPoEPacket *pkt, int *size)
++{
++    if ((*size = recv(sock, pkt, sizeof(PPPoEPacket), 0)) < 0) {
++	sysErr("recv (receivePacket)");
++	return -1;
++    }
++    return 0;
++}
++
++/**********************************************************************
++*%FUNCTION: parsePacket
++*%ARGUMENTS:
++* packet -- the PPPoE discovery packet to parse
++* func -- function called for each tag in the packet
++* extra -- an opaque data pointer supplied to parsing function
++*%RETURNS:
++* 0 if everything went well; -1 if there was an error
++*%DESCRIPTION:
++* Parses a PPPoE discovery packet, calling "func" for each tag in the packet.
++* "func" is passed the additional argument "extra".
++***********************************************************************/
++int
++parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
++{
++    UINT16_t len = ntohs(packet->length);
++    unsigned char *curTag;
++    UINT16_t tagType, tagLen;
++
++    if (PPPOE_VER(packet->vertype) != 1) {
++	fprintf(stderr, "Invalid PPPoE version (%d)\n",
++		PPPOE_VER(packet->vertype));
++	return -1;
++    }
++    if (PPPOE_TYPE(packet->vertype) != 1) {
++	fprintf(stderr, "Invalid PPPoE type (%d)\n",
++		PPPOE_TYPE(packet->vertype));
++	return -1;
++    }
++
++    /* Do some sanity checks on packet */
++    if (len > ETH_DATA_LEN - 6) { /* 6-byte overhead for PPPoE header */
++	fprintf(stderr, "Invalid PPPoE packet length (%u)\n", len);
++	return -1;
++    }
++
++    /* Step through the tags */
++    curTag = packet->payload;
++    while(curTag - packet->payload < len) {
++	/* Alignment is not guaranteed, so do this by hand... */
++	tagType = (curTag[0] << 8) + curTag[1];
++	tagLen = (curTag[2] << 8) + curTag[3];
++	if (tagType == TAG_END_OF_LIST) {
++	    return 0;
++	}
++	if ((curTag - packet->payload) + tagLen + TAG_HDR_SIZE > len) {
++	    fprintf(stderr, "Invalid PPPoE tag length (%u)\n", tagLen);
++	    return -1;
++	}
++	func(tagType, tagLen, curTag+TAG_HDR_SIZE, extra);
++	curTag = curTag + TAG_HDR_SIZE + tagLen;
++    }
++    return 0;
++}
++
++/**********************************************************************
++*%FUNCTION: parseForHostUniq
++*%ARGUMENTS:
++* type -- tag type
++* len -- tag length
++* data -- tag data.
++* extra -- user-supplied pointer.  This is assumed to be a pointer to int.
++*%RETURNS:
++* Nothing
++*%DESCRIPTION:
++* If a HostUnique tag is found which matches our PID, sets *extra to 1.
++***********************************************************************/
++void
++parseForHostUniq(UINT16_t type, UINT16_t len, unsigned char *data,
++		 void *extra)
++{
++    int *val = (int *) extra;
++    if (type == TAG_HOST_UNIQ && len == sizeof(pid_t)) {
++	pid_t tmp;
++	memcpy(&tmp, data, len);
++	if (tmp == getpid()) {
++	    *val = 1;
++	}
++    }
++}
++
++/**********************************************************************
++*%FUNCTION: packetIsForMe
++*%ARGUMENTS:
++* conn -- PPPoE connection info
++* packet -- a received PPPoE packet
++*%RETURNS:
++* 1 if packet is for this PPPoE daemon; 0 otherwise.
++*%DESCRIPTION:
++* If we are using the Host-Unique tag, verifies that packet contains
++* our unique identifier.
++***********************************************************************/
++int
++packetIsForMe(PPPoEConnection *conn, PPPoEPacket *packet)
++{
++    int forMe = 0;
++
++    /* If packet is not directed to our MAC address, forget it */
++    if (memcmp(packet->ethHdr.h_dest, conn->myEth, ETH_ALEN)) return 0;
++
++    /* If we're not using the Host-Unique tag, then accept the packet */
++    if (!conn->useHostUniq) return 1;
++
++    parsePacket(packet, parseForHostUniq, &forMe);
++    return forMe;
++}
++
++/**********************************************************************
++*%FUNCTION: parsePADOTags
++*%ARGUMENTS:
++* type -- tag type
++* len -- tag length
++* data -- tag data
++* extra -- extra user data.  Should point to a PacketCriteria structure
++*          which gets filled in according to selected AC name and service
++*          name.
++*%RETURNS:
++* Nothing
++*%DESCRIPTION:
++* Picks interesting tags out of a PADO packet
++***********************************************************************/
++void
++parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
++	      void *extra)
++{
++    struct PacketCriteria *pc = (struct PacketCriteria *) extra;
++    PPPoEConnection *conn = pc->conn;
++    int i;
++
++    switch(type) {
++    case TAG_AC_NAME:
++	pc->seenACName = 1;
++	printf("Access-Concentrator: %.*s\n", (int) len, data);
++	if (conn->acName && len == strlen(conn->acName) &&
++	    !strncmp((char *) data, conn->acName, len)) {
++	    pc->acNameOK = 1;
++	}
++	break;
++    case TAG_SERVICE_NAME:
++	pc->seenServiceName = 1;
++	if (len > 0) {
++	    printf("       Service-Name: %.*s\n", (int) len, data);
++	}
++	if (conn->serviceName && len == strlen(conn->serviceName) &&
++	    !strncmp((char *) data, conn->serviceName, len)) {
++	    pc->serviceNameOK = 1;
++	}
++	break;
++    case TAG_AC_COOKIE:
++	printf("Got a cookie:");
++	/* Print first 20 bytes of cookie */
++	for (i=0; i<len && i < 20; i++) {
++	    printf(" %02x", (unsigned) data[i]);
++	}
++	if (i < len) printf("...");
++	printf("\n");
++	conn->cookie.type = htons(type);
++	conn->cookie.length = htons(len);
++	memcpy(conn->cookie.payload, data, len);
++	break;
++    case TAG_RELAY_SESSION_ID:
++	printf("Got a Relay-ID:");
++	/* Print first 20 bytes of relay ID */
++	for (i=0; i<len && i < 20; i++) {
++	    printf(" %02x", (unsigned) data[i]);
++	}
++	if (i < len) printf("...");
++	printf("\n");
++	conn->relayId.type = htons(type);
++	conn->relayId.length = htons(len);
++	memcpy(conn->relayId.payload, data, len);
++	break;
++    case TAG_SERVICE_NAME_ERROR:
++	printf("Got a Service-Name-Error tag: %.*s\n", (int) len, data);
++	break;
++    case TAG_AC_SYSTEM_ERROR:
++	printf("Got a System-Error tag: %.*s\n", (int) len, data);
++	break;
++    case TAG_GENERIC_ERROR:
++	printf("Got a Generic-Error tag: %.*s\n", (int) len, data);
++	break;
++    }
++}
++
++/***********************************************************************
++*%FUNCTION: sendPADI
++*%ARGUMENTS:
++* conn -- PPPoEConnection structure
++*%RETURNS:
++* Nothing
++*%DESCRIPTION:
++* Sends a PADI packet
++***********************************************************************/
++void
++sendPADI(PPPoEConnection *conn)
++{
++    PPPoEPacket packet;
++    unsigned char *cursor = packet.payload;
++    PPPoETag *svc = (PPPoETag *) (&packet.payload);
++    UINT16_t namelen = 0;
++    UINT16_t plen;
++
++    if (conn->serviceName) {
++	namelen = (UINT16_t) strlen(conn->serviceName);
++    }
++    plen = TAG_HDR_SIZE + namelen;
++    CHECK_ROOM(cursor, packet.payload, plen);
++
++    /* Set destination to Ethernet broadcast address */
++    memset(packet.ethHdr.h_dest, 0xFF, ETH_ALEN);
++    memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
++
++    packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
++    packet.code = CODE_PADI;
++    packet.session = 0;
++
++    svc->type = TAG_SERVICE_NAME;
++    svc->length = htons(namelen);
++    CHECK_ROOM(cursor, packet.payload, namelen+TAG_HDR_SIZE);
++
++    if (conn->serviceName) {
++	memcpy(svc->payload, conn->serviceName, strlen(conn->serviceName));
++    }
++    cursor += namelen + TAG_HDR_SIZE;
++
++    /* If we're using Host-Uniq, copy it over */
++    if (conn->useHostUniq) {
++	PPPoETag hostUniq;
++	pid_t pid = getpid();
++	hostUniq.type = htons(TAG_HOST_UNIQ);
++	hostUniq.length = htons(sizeof(pid));
++	memcpy(hostUniq.payload, &pid, sizeof(pid));
++	CHECK_ROOM(cursor, packet.payload, sizeof(pid) + TAG_HDR_SIZE);
++	memcpy(cursor, &hostUniq, sizeof(pid) + TAG_HDR_SIZE);
++	cursor += sizeof(pid) + TAG_HDR_SIZE;
++	plen += sizeof(pid) + TAG_HDR_SIZE;
++    }
++
++    packet.length = htons(plen);
++
++    sendPacket(conn, conn->discoverySocket, &packet, (int) (plen + HDR_SIZE));
++    if (conn->debugFile) {
++	dumpPacket(conn->debugFile, &packet, "SENT");
++	fprintf(conn->debugFile, "\n");
++	fflush(conn->debugFile);
++    }
++}
++
++/**********************************************************************
++*%FUNCTION: waitForPADO
++*%ARGUMENTS:
++* conn -- PPPoEConnection structure
++* timeout -- how long to wait (in seconds)
++*%RETURNS:
++* Nothing
++*%DESCRIPTION:
++* Waits for a PADO packet and copies useful information
++***********************************************************************/
++void
++waitForPADO(PPPoEConnection *conn, int timeout)
++{
++    fd_set readable;
++    int r;
++    struct timeval tv;
++    PPPoEPacket packet;
++    int len;
++
++    struct PacketCriteria pc;
++    pc.conn          = conn;
++    pc.acNameOK      = (conn->acName)      ? 0 : 1;
++    pc.serviceNameOK = (conn->serviceName) ? 0 : 1;
++    pc.seenACName    = 0;
++    pc.seenServiceName = 0;
++    conn->error = 0;
++	
++    do {
++	if (BPF_BUFFER_IS_EMPTY) {
++	    tv.tv_sec = timeout;
++	    tv.tv_usec = 0;
++	
++	    FD_ZERO(&readable);
++	    FD_SET(conn->discoverySocket, &readable);
++
++	    while(1) {
++		r = select(conn->discoverySocket+1, &readable, NULL, NULL, &tv);
++		if (r >= 0 || errno != EINTR) break;
++	    }
++	    if (r < 0) {
++		perror("select (waitForPADO)");
++		return;
++	    }
++	    if (r == 0) return;        /* Timed out */
++	}
++	
++	/* Get the packet */
++	receivePacket(conn->discoverySocket, &packet, &len);
++
++	/* Check length */
++	if (ntohs(packet.length) + HDR_SIZE > len) {
++	    fprintf(stderr, "Bogus PPPoE length field (%u)\n",
++		   (unsigned int) ntohs(packet.length));
++	    continue;
++	}
++
++#ifdef USE_BPF
++	/* If it's not a Discovery packet, loop again */
++	if (etherType(&packet) != Eth_PPPOE_Discovery) continue;
++#endif
++
++	if (conn->debugFile) {
++	    dumpPacket(conn->debugFile, &packet, "RCVD");
++	    fprintf(conn->debugFile, "\n");
++	    fflush(conn->debugFile);
++	}
++	/* If it's not for us, loop again */
++	if (!packetIsForMe(conn, &packet)) continue;
++
++	if (packet.code == CODE_PADO) {
++	    if (BROADCAST(packet.ethHdr.h_source)) {
++		fprintf(stderr, "Ignoring PADO packet from broadcast MAC address\n");
++		continue;
++	    }
++	    parsePacket(&packet, parsePADOTags, &pc);
++	    if (conn->error)
++		return;
++	    if (!pc.seenACName) {
++		fprintf(stderr, "Ignoring PADO packet with no AC-Name tag\n");
++		continue;
++	    }
++	    if (!pc.seenServiceName) {
++		fprintf(stderr, "Ignoring PADO packet with no Service-Name tag\n");
++		continue;
++	    }
++	    conn->numPADOs++;
++	    printf("--------------------------------------------------\n");
++	    if (pc.acNameOK && pc.serviceNameOK) {
++		memcpy(conn->peerEth, packet.ethHdr.h_source, ETH_ALEN);
++		if (conn->printACNames) {
++		    printf("AC-Ethernet-Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
++			   (unsigned) conn->peerEth[0], 
++			   (unsigned) conn->peerEth[1],
++			   (unsigned) conn->peerEth[2],
++			   (unsigned) conn->peerEth[3],
++			   (unsigned) conn->peerEth[4],
++			   (unsigned) conn->peerEth[5]);
++		    continue;
++		}
++		conn->discoveryState = STATE_RECEIVED_PADO;
++		break;
++	    }
++	}
++    } while (conn->discoveryState != STATE_RECEIVED_PADO);
++}
++
++/**********************************************************************
++*%FUNCTION: discovery
++*%ARGUMENTS:
++* conn -- PPPoE connection info structure
++*%RETURNS:
++* Nothing
++*%DESCRIPTION:
++* Performs the PPPoE discovery phase
++***********************************************************************/
++void
++discovery(PPPoEConnection *conn)
++{
++    int padiAttempts = 0;
++    int timeout = PADI_TIMEOUT;
++
++    conn->discoverySocket =
++	openInterface(conn->ifName, Eth_PPPOE_Discovery, conn->myEth);
++
++    do {
++	padiAttempts++;
++	if (padiAttempts > MAX_PADI_ATTEMPTS) {
++	    fprintf(stderr, "Timeout waiting for PADO packets\n");
++	    close(conn->discoverySocket);
++	    conn->discoverySocket = -1;
++	    return;
++	}
++	sendPADI(conn);
++	conn->discoveryState = STATE_SENT_PADI;
++	waitForPADO(conn, timeout);
++    } while (!conn->numPADOs);
++}
++
+ int main(int argc, char *argv[])
+ {
+     int opt;
+@@ -54,7 +662,7 @@ int main(int argc, char *argv[])
+ 			optarg, strerror(errno));
+ 		exit(1);
+ 	    }
+-	    fprintf(conn->debugFile, "pppoe-discovery %s\n", VERSION);
++	    fprintf(conn->debugFile, "pppoe-discovery %s\n", RP_VERSION);
+ 	    break;
+ 	case 'I':
+ 	    conn->ifName = xstrdup(optarg);
+@@ -86,21 +694,13 @@ int main(int argc, char *argv[])
+ 
+ void rp_fatal(char const *str)
+ {
+-    char buf[1024];
+-
+-    printErr(str);
+-    sprintf(buf, "pppoe-discovery: %.256s", str);
++    fprintf(stderr, "%s\n", str);
+     exit(1);
+ }
+ 
+ void fatalSys(char const *str)
+ {
+-    char buf[1024];
+-    int i = errno;
+-
+-    sprintf(buf, "%.256s: %.256s", str, strerror(i));
+-    printErr(buf);
+-    sprintf(buf, "pppoe-discovery: %.256s: %.256s", str, strerror(i));
++    perror(str);
+     exit(1);
+ }
+ 
+@@ -120,5 +720,5 @@ char *xstrdup(const char *s)
+ void usage(void)
+ {
+     fprintf(stderr, "Usage: pppoe-discovery [options]\n");
+-    fprintf(stderr, "\nVersion " VERSION "\n");
++    fprintf(stderr, "\nVersion " RP_VERSION "\n");
+ }
+diff --git a/pppd/plugins/rp-pppoe/pppoe.h b/pppd/plugins/rp-pppoe/pppoe.h
+index 2309ad3..a4cf28a 100644
+--- a/pppd/plugins/rp-pppoe/pppoe.h
++++ b/pppd/plugins/rp-pppoe/pppoe.h
+@@ -9,14 +9,10 @@
+ * This program may be distributed according to the terms of the GNU
+ * General Public License, version 2 or (at your option) any later version.
+ *
+-* $Id: pppoe.h,v 1.2 2004/11/04 10:07:37 paulus Exp $
++* $Id: pppoe.h,v 1.3 2008/06/09 08:34:23 paulus Exp $
+ *
+ ***********************************************************************/
+ 
+-#ifdef __sun__
+-#define __EXTENSIONS__
+-#endif
+-
+ #include "config.h"
+ 
+ #if defined(HAVE_NETPACKET_PACKET_H) || defined(HAVE_LINUX_IF_PACKET_H)
+@@ -62,51 +58,8 @@
+ #include <net/if_types.h>
+ #endif
+ 
+-#ifdef HAVE_NET_IF_DL_H
+-#include <net/if_dl.h>
+-#endif
+-
+-/* I'm not sure why this is needed... I do not have OpenBSD */
+-#if defined(__OpenBSD__)
+-#include <net/ppp_defs.h>
+-#include <net/if_ppp.h>
+-#endif
+-
+-#ifdef USE_BPF
+-extern int bpfSize;
+-struct PPPoEPacketStruct;
+-void sessionDiscoveryPacket(struct PPPoEPacketStruct *packet);
+-#define BPF_BUFFER_IS_EMPTY (bpfSize <= 0)
+-#define BPF_BUFFER_HAS_DATA (bpfSize > 0)
+-#define ethhdr ether_header
+-#define h_dest ether_dhost
+-#define h_source ether_shost
+-#define h_proto ether_type
+-#define	ETH_DATA_LEN ETHERMTU
+-#define	ETH_ALEN ETHER_ADDR_LEN
+-#else
+-#undef USE_BPF
+ #define BPF_BUFFER_IS_EMPTY 1
+ #define BPF_BUFFER_HAS_DATA 0
+-#endif
+-
+-#ifdef USE_DLPI
+-#include <sys/ethernet.h>
+-#define ethhdr ether_header
+-#define	ETH_DATA_LEN ETHERMTU
+-#define	ETH_ALEN ETHERADDRL
+-#define h_dest ether_dhost.ether_addr_octet
+-#define h_source ether_shost.ether_addr_octet
+-#define h_proto ether_type
+-
+-/* cloned from dltest.h */
+-#define         MAXDLBUF        8192
+-#define         MAXDLADDR       1024
+-#define         MAXWAIT         15
+-#define         OFFADDR(s, n)   (u_char*)((char*)(s) + (int)(n))
+-#define         CASERET(s)      case s:  return ("s")
+-
+-#endif
+ 
+ /* Define various integer types -- assumes a char is 8 bits */
+ #if SIZEOF_UNSIGNED_SHORT == 2
+@@ -124,7 +77,7 @@ typedef unsigned int UINT32_t;
+ #elif SIZEOF_UNSIGNED_LONG == 4
+ typedef unsigned long UINT32_t;
+ #else
+-#error Could not find a 16-bit integer type
++#error Could not find a 32-bit integer type
+ #endif
+ 
+ #ifdef HAVE_LINUX_IF_ETHER_H
+@@ -160,6 +113,12 @@ extern UINT16_t Eth_PPPOE_Session;
+ #define CODE_PADR           0x19
+ #define CODE_PADS           0x65
+ #define CODE_PADT           0xA7
++
++/* Extensions from draft-carrel-info-pppoe-ext-00 */
++/* I do NOT like PADM or PADN, but they are here for completeness */
++#define CODE_PADM           0xD3
++#define CODE_PADN           0xD4
++
+ #define CODE_SESS           0x00
+ 
+ /* PPPoE Tags */
+@@ -174,6 +133,12 @@ extern UINT16_t Eth_PPPOE_Session;
+ #define TAG_AC_SYSTEM_ERROR    0x0202
+ #define TAG_GENERIC_ERROR      0x0203
+ 
++/* Extensions from draft-carrel-info-pppoe-ext-00 */
++/* I do NOT like these tags one little bit */
++#define TAG_HURL               0x111
++#define TAG_MOTM               0x112
++#define TAG_IP_ROUTE_ADD       0x121
++
+ /* Discovery phase states */
+ #define STATE_SENT_PADI     0
+ #define STATE_RECEIVED_PADO 1
+@@ -205,19 +170,17 @@ extern UINT16_t Eth_PPPOE_Session;
+ /* A PPPoE Packet, including Ethernet headers */
+ typedef struct PPPoEPacketStruct {
+     struct ethhdr ethHdr;	/* Ethernet header */
+-#ifdef PACK_BITFIELDS_REVERSED
+-    unsigned int type:4;	/* PPPoE Type (must be 1) */
+-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
+-#else
+-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
+-    unsigned int type:4;	/* PPPoE Type (must be 1) */
+-#endif
++    unsigned int vertype:8;	/* PPPoE Version and Type (must both be 1) */
+     unsigned int code:8;	/* PPPoE code */
+     unsigned int session:16;	/* PPPoE session */
+     unsigned int length:16;	/* Payload length */
+     unsigned char payload[ETH_DATA_LEN]; /* A bit of room to spare */
+ } PPPoEPacket;
+ 
++#define PPPOE_VER(vt)		((vt) >> 4)
++#define PPPOE_TYPE(vt)		((vt) & 0xf)
++#define PPPOE_VER_TYPE(v, t)	(((v) << 4) | (t))
++
+ /* Header size of a PPPoE packet */
+ #define PPPOE_OVERHEAD 6  /* type, code, session, length */
+ #define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+@@ -261,12 +224,13 @@ typedef struct PPPoEConnectionStruct {
+     int synchronous;		/* Use synchronous PPP */
+     int useHostUniq;		/* Use Host-Uniq tag */
+     int printACNames;		/* Just print AC names */
+-    int skipDiscovery;		/* Skip discovery */
+-    int noDiscoverySocket;	/* Don't even open discovery socket */
+     FILE *debugFile;		/* Debug file for dumping packets */
+     int numPADOs;		/* Number of PADO packets received */
+     PPPoETag cookie;		/* We have to send this if we get it */
+     PPPoETag relayId;		/* Ditto */
++    int error;			/* Error packet received */
++    int debug;			/* Set to log packets sent and received */
++    int discoveryTimeout;       /* Timeout for discovery packets */
+ } PPPoEConnection;
+ 
+ /* Structure used to determine acceptable PADO or PADS packet */
+@@ -307,12 +271,16 @@ void discovery(PPPoEConnection *conn);
+ unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
+ 		       PPPoETag *tag);
+ 
++void pppoe_printpkt(PPPoEPacket *packet,
++		    void (*printer)(void *, char *, ...), void *arg);
++void pppoe_log_packet(const char *prefix, PPPoEPacket *packet);
++
+ #define SET_STRING(var, val) do { if (var) free(var); var = strDup(val); } while(0);
+ 
+ #define CHECK_ROOM(cursor, start, len) \
+ do {\
+     if (((cursor)-(start))+(len) > MAX_PPPOE_PAYLOAD) { \
+-        syslog(LOG_ERR, "Would create too-long packet"); \
++	error("Would create too-long packet");	\
+         return; \
+     } \
+ } while(0)
+-- 
+2.20.1
+

@@ -1,0 +1,132 @@
+From 3ea9de913739667e2131d67d979ff175ec394e67 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@ozlabs.org>
+Date: Sun, 1 Dec 2019 21:32:37 +1100
+Subject: [PATCH] pppd: Eliminate some more compiler warnings
+
+Recent versions of gcc produce warnings on code where strncpy will
+produce a result that is not NULL terminated.  This changes the
+code to eliminate these warnings.  In two cases this is done by
+changing strncpy to strlcpy, which could in principle cause a loss
+of the information in the last byte.  This is not a concern in
+these cases because:
+
+- In sys-linux.c, the interface names in struct ifreq were possibly
+  not NULL terminated.  The Linux kernel clears the last byte to make
+  them NULL terminated anyway, so there is no loss of information.
+
+- In session.c, the lastlog ll_line and ll_host fields were possibly
+  not NULL terminated.  These fields are quite long and it is unlikely
+  that the last byte is needed.
+
+In the other cases strlcpy and strlcat are used to give the same
+effect as the old code but without warnings.
+
+This also changes %ld to %d in one place to eliminate a format warning.
+
+Signed-off-by: Paul Mackerras <paulus@ozlabs.org>
+---
+ pppd/plugins/radius/avpair.c   |  2 +-
+ pppd/plugins/radius/config.c   | 20 ++++----------------
+ pppd/plugins/rp-pppoe/plugin.c |  6 ++++--
+ pppd/session.c                 |  4 ++--
+ pppd/sys-linux.c               |  4 ++--
+ 5 files changed, 13 insertions(+), 23 deletions(-)
+
+diff --git a/pppd/plugins/radius/avpair.c b/pppd/plugins/radius/avpair.c
+index b22a0a2..ebc1895 100644
+--- a/pppd/plugins/radius/avpair.c
++++ b/pppd/plugins/radius/avpair.c
+@@ -737,7 +737,7 @@ int rc_avpair_tostr (VALUE_PAIR *pair, char *name, int ln, char *value, int lv)
+ 		}
+ 		else
+ 		{
+-			sprintf (buffer, "%ld", pair->lvalue);
++			sprintf (buffer, "%d", pair->lvalue);
+ 			strncpy(value, buffer, (size_t) lv);
+ 		}
+ 		break;
+diff --git a/pppd/plugins/radius/config.c b/pppd/plugins/radius/config.c
+index 6e36d89..c5a4eeb 100644
+--- a/pppd/plugins/radius/config.c
++++ b/pppd/plugins/radius/config.c
+@@ -482,26 +482,14 @@ int rc_find_server (char *server_name, UINT4 *ip_addr, char *secret)
+ 		if ((h = strtok (buffer, " \t\n")) == NULL) /* first hostname */
+ 			continue;
+ 
+-		memset (hostnm, '\0', AUTH_ID_LEN);
+-		len = strlen (h);
+-		if (len > AUTH_ID_LEN)
+-		{
+-			len = AUTH_ID_LEN;
+-		}
+-		strncpy (hostnm, h, (size_t) len);
+-		hostnm[AUTH_ID_LEN] = '\0';
++		memset (hostnm, '\0', AUTH_ID_LEN + 1);
++		strlcpy (hostnm, h, AUTH_ID_LEN + 1);
+ 
+ 		if ((s = strtok (NULL, " \t\n")) == NULL) /* and secret field */
+ 			continue;
+ 
+-		memset (secret, '\0', MAX_SECRET_LENGTH);
+-		len = strlen (s);
+-		if (len > MAX_SECRET_LENGTH)
+-		{
+-			len = MAX_SECRET_LENGTH;
+-		}
+-		strncpy (secret, s, (size_t) len);
+-		secret[MAX_SECRET_LENGTH] = '\0';
++		memset (secret, '\0', MAX_SECRET_LENGTH + 1);
++		strlcpy (secret, s, MAX_SECRET_LENGTH + 1);
+ 
+ 		if (!strchr (hostnm, '/')) /* If single name form */
+ 		{
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index 9e838d3..44e0c31 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -302,8 +302,10 @@ PPPOEDisconnectDevice(void)
+ static void
+ PPPOEDeviceOptions(void)
+ {
+-    char buf[256];
+-    snprintf(buf, 256, _PATH_ETHOPT "%s", devnam);
++    char buf[MAXPATHLEN];
++
++    strlcpy(buf, _PATH_ETHOPT, MAXPATHLEN);
++    strlcat(buf, devnam, MAXPATHLEN);
+     if (!options_from_file(buf, 0, 0, 1))
+ 	exit(EXIT_OPTION_ERROR);
+ 
+diff --git a/pppd/session.c b/pppd/session.c
+index 56385dd..473e51e 100644
+--- a/pppd/session.c
++++ b/pppd/session.c
+@@ -384,8 +384,8 @@ session_start(flags, user, passwd, ttyName, msg)
+                 memset((void *)&ll, 0, sizeof(ll));
+ 		(void)time(&tnow);
+                 ll.ll_time = tnow;
+-                (void)strncpy(ll.ll_line, ttyName, sizeof(ll.ll_line));
+-                (void)strncpy(ll.ll_host, ifname, sizeof(ll.ll_host));
++                strlcpy(ll.ll_line, ttyName, sizeof(ll.ll_line));
++                strlcpy(ll.ll_host, ifname, sizeof(ll.ll_host));
+                 (void)write(fd, (char *)&ll, sizeof(ll));
+                 (void)close(fd);
+             }
+diff --git a/pppd/sys-linux.c b/pppd/sys-linux.c
+index 89263ed..a0531e9 100644
+--- a/pppd/sys-linux.c
++++ b/pppd/sys-linux.c
+@@ -656,8 +656,8 @@ static int make_ppp_unit()
+ 		char t[MAXIFNAMELEN];
+ 		memset(&ifr, 0, sizeof(struct ifreq));
+ 		slprintf(t, sizeof(t), "%s%d", PPP_DRV_NAME, ifunit);
+-		strncpy(ifr.ifr_name, t, IF_NAMESIZE);
+-		strncpy(ifr.ifr_newname, req_ifname, IF_NAMESIZE);
++		strlcpy(ifr.ifr_name, t, IF_NAMESIZE);
++		strlcpy(ifr.ifr_newname, req_ifname, IF_NAMESIZE);
+ 		x = ioctl(sock_fd, SIOCSIFNAME, &ifr);
+ 		if (x < 0)
+ 		    error("Couldn't rename interface %s to %s: %m", t, req_ifname);
+-- 
+2.20.1
+

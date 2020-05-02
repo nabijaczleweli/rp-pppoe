@@ -1,0 +1,32 @@
+From ac682de4ec32d4cc8859b31366023e28012e23e6 Mon Sep 17 00:00:00 2001
+From: Martin Schiller <ms@dev.tdt.de>
+Date: Thu, 7 Dec 2017 08:49:58 +0100
+Subject: [PATCH] pppoe-discovery: show real usage information
+
+Signed-off-by: Martin Schiller <ms@dev.tdt.de>
+---
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index 55037df..3c19dfa 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -729,5 +729,14 @@ char *xstrdup(const char *s)
+ void usage(void)
+ {
+     fprintf(stderr, "Usage: pppoe-discovery [options]\n");
++    fprintf(stderr, "Options:\n");
++    fprintf(stderr, "   -I if_name     -- Specify interface (default eth0)\n");
++    fprintf(stderr, "   -D filename    -- Log debugging information in filename.\n");
++    fprintf(stderr,
++	    "   -V             -- Print version and exit.\n"
++	    "   -S name        -- Set desired service name.\n"
++	    "   -C name        -- Set desired access concentrator name.\n"
++	    "   -U             -- Use Host-Unique to allow multiple PPPoE sessions.\n"
++	    "   -h             -- Print usage information.\n");
+     fprintf(stderr, "\nVersion " RP_VERSION "\n");
+ }
+-- 
+2.20.1
+

@@ -1,0 +1,33 @@
+From 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Sun, 14 Nov 2004 07:58:37 +0000
+Subject: [PATCH] make sure plugins get installed in the right place
+
+---
+ pppd/plugins/rp-pppoe/Makefile.linux | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index 5c8ecaf..2ffa1c0 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -10,12 +10,14 @@
+ # This program may be distributed according to the terms of the GNU
+ # General Public License, version 2 or (at your option) any later version.
+ #
+-# $Id: Makefile.linux,v 1.5 2004/11/13 12:14:59 paulus Exp $
++# $Id: Makefile.linux,v 1.6 2004/11/14 07:58:37 paulus Exp $
+ #***********************************************************************
+ 
+ DESTDIR = @DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+-LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
++LIBDIR = $(DESTDIR)/lib/pppd/$(PPPDVERSION)
++
++PPPDVERSION = $(shell awk -F '"' '/VERSION/ { print $$2; }' ../../patchlevel.h)
+ 
+ INSTALL	= install
+ 
+-- 
+2.20.1
+

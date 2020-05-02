@@ -1,0 +1,106 @@
+From 03a755882397bda31e3e44d3aa51034338ea3ce6 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Sun, 31 Oct 2004 22:09:03 +0000
+Subject: [PATCH] Take out the -o root argument to install.  It is the default
+ anyway when installing as root, and it causes errors in the build farm
+ testing.
+
+---
+ pppd/Makefile.linux                  | 4 ++--
+ pppd/plugins/Makefile.linux          | 2 +-
+ pppd/plugins/radius/Makefile.linux   | 2 +-
+ pppd/plugins/rp-pppoe/Makefile.linux | 4 ++--
+ pppstats/Makefile.linux              | 4 ++--
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/pppd/Makefile.linux b/pppd/Makefile.linux
+index a5df637..cfa2d1a 100644
+--- a/pppd/Makefile.linux
++++ b/pppd/Makefile.linux
+@@ -1,6 +1,6 @@
+ #
+ # pppd makefile for Linux
+-# $Id: Makefile.linux,v 1.63 2004/10/31 21:27:24 paulus Exp $
++# $Id: Makefile.linux,v 1.64 2004/10/31 22:09:03 paulus Exp $
+ #
+ 
+ # Default installation locations
+@@ -193,7 +193,7 @@ ifdef MAXOCTETS
+      CFLAGS += -DMAXOCTETS
+ endif
+ 
+-INSTALL= install -o root
++INSTALL= install
+ 
+ all: $(TARGETS)
+ 
+diff --git a/pppd/plugins/Makefile.linux b/pppd/plugins/Makefile.linux
+index 2352765..80b0ae0 100644
+--- a/pppd/plugins/Makefile.linux
++++ b/pppd/plugins/Makefile.linux
+@@ -2,7 +2,7 @@ CC	= gcc
+ COPTS	= -O2 -g
+ CFLAGS	= $(COPTS) -I.. -I../../include -fPIC
+ LDFLAGS	= -shared
+-INSTALL	= install -o root
++INSTALL	= install
+ 
+ DESTDIR = @DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+diff --git a/pppd/plugins/radius/Makefile.linux b/pppd/plugins/radius/Makefile.linux
+index 50d4799..05a8730 100644
+--- a/pppd/plugins/radius/Makefile.linux
++++ b/pppd/plugins/radius/Makefile.linux
+@@ -7,7 +7,7 @@ DESTDIR = @DESTDIR@
+ MANDIR = $(DESTDIR)/share/man/man8
+ LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
+ 
+-INSTALL	= install -o root
++INSTALL	= install
+ 
+ PLUGIN=radius.so radattr.so radrealms.so
+ CFLAGS=-I../.. -I../../../include -Iradiusclient/include -O2
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index f1428c5..c20af57 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -10,13 +10,13 @@
+ # This program may be distributed according to the terms of the GNU
+ # General Public License, version 2 or (at your option) any later version.
+ #
+-# $Id: Makefile.linux,v 1.3 2004/10/29 00:12:27 paulus Exp $
++# $Id: Makefile.linux,v 1.4 2004/10/31 22:09:03 paulus Exp $
+ #***********************************************************************
+ 
+ DESTDIR = @DESTDIR@
+ LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
+ 
+-INSTALL	= install -o root
++INSTALL	= install
+ 
+ # Version is set ONLY IN THE MAKEFILE!  Don't delete this!
+ VERSION=3.3
+diff --git a/pppstats/Makefile.linux b/pppstats/Makefile.linux
+index c97cf32..6b8fb47 100644
+--- a/pppstats/Makefile.linux
++++ b/pppstats/Makefile.linux
+@@ -1,6 +1,6 @@
+ #
+ # pppstats makefile
+-# $Id: Makefile.linux,v 1.7 2004/10/31 21:27:24 paulus Exp $
++# $Id: Makefile.linux,v 1.8 2004/10/31 22:09:03 paulus Exp $
+ #
+ DESTDIR = @DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+@@ -14,7 +14,7 @@ COPTS = -O
+ COMPILE_FLAGS = -I../include
+ LIBS =
+ 
+-INSTALL= install -o root -g daemon
++INSTALL= install
+ 
+ CFLAGS = $(COPTS) $(COMPILE_FLAGS)
+ 
+-- 
+2.20.1
+

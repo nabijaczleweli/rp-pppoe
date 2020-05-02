@@ -1,0 +1,428 @@
+From fcb076c2b24bd8dd73f4be7a9e1712d3a352a376 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jaroslav=20=C5=A0karvada?= <jskarvad@redhat.com>
+Date: Mon, 6 May 2019 00:46:02 +0200
+Subject: [PATCH] Various fixes for errors found by coverity static analysis
+ (#109)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fixes #108
+
+Signed-off-by: Jaroslav Škarvada <jskarvad@redhat.com>
+---
+ chat/chat.c                             |  2 ++
+ pppd/auth.c                             |  4 ++++
+ pppd/multilink.c                        |  4 ++++
+ pppd/plugins/pppol2tp/openl2tp.c        |  3 +++
+ pppd/plugins/radius/avpair.c            |  2 +-
+ pppd/plugins/radius/config.c            |  4 +++-
+ pppd/plugins/radius/radius.c            |  2 +-
+ pppd/plugins/radius/radiusclient.h      |  1 +
+ pppd/plugins/radius/radrealms.c         | 14 ++++++++++++--
+ pppd/plugins/rp-pppoe/Makefile.linux    |  4 ++--
+ pppd/plugins/rp-pppoe/if.c              |  6 +++---
+ pppd/plugins/rp-pppoe/plugin.c          |  6 +++---
+ pppd/plugins/rp-pppoe/pppoe-discovery.c |  3 ++-
+ pppd/plugins/rp-pppoe/pppoe.h           |  2 ++
+ pppd/plugins/winbind.c                  |  1 +
+ pppd/sys-linux.c                        |  5 ++++-
+ pppstats/pppstats.c                     |  9 ++++++---
+ 17 files changed, 54 insertions(+), 18 deletions(-)
+
+diff --git a/chat/chat.c b/chat/chat.c
+index 710dba9..bf10733 100644
+--- a/chat/chat.c
++++ b/chat/chat.c
+@@ -512,6 +512,7 @@ void msgf __V((const char *fmt, ...))
+ 	syslog(LOG_INFO, "%s", line);
+     if (to_stderr)
+ 	fprintf(stderr, "%s\n", line);
++    va_end(args);
+ }
+ 
+ /*
+@@ -537,6 +538,7 @@ void fatal __V((int code, const char *fmt, ...))
+ 	syslog(LOG_ERR, "%s", line);
+     if (to_stderr)
+ 	fprintf(stderr, "%s\n", line);
++    va_end(args);
+     terminate(code);
+ }
+ 
+diff --git a/pppd/auth.c b/pppd/auth.c
+index 7457eda..590a265 100644
+--- a/pppd/auth.c
++++ b/pppd/auth.c
+@@ -430,6 +430,7 @@ setupapfile(argv)
+     euid = geteuid();
+     if (seteuid(getuid()) == -1) {
+ 	option_error("unable to reset uid before opening %s: %m", fname);
++        free(fname);
+ 	return 0;
+     }
+     ufile = fopen(fname, "r");
+@@ -437,6 +438,7 @@ setupapfile(argv)
+ 	fatal("unable to regain privileges: %m");
+     if (ufile == NULL) {
+ 	option_error("unable to open user login data file %s", fname);
++        free(fname);
+ 	return 0;
+     }
+     check_access(ufile, fname);
+@@ -447,6 +449,7 @@ setupapfile(argv)
+ 	|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL) {
+ 	fclose(ufile);
+ 	option_error("unable to read user login data file %s", fname);
++        free(fname);
+ 	return 0;
+     }
+     fclose(ufile);
+@@ -468,6 +471,7 @@ setupapfile(argv)
+ 	explicit_passwd = 1;
+     }
+ 
++    free(fname);
+     return (1);
+ }
+ 
+diff --git a/pppd/multilink.c b/pppd/multilink.c
+index 135cab0..c49c446 100644
+--- a/pppd/multilink.c
++++ b/pppd/multilink.c
+@@ -445,9 +445,13 @@ get_default_epdisc(ep)
+ 	if (p != 0 && get_if_hwaddr(ep->value, p) >= 0) {
+ 		ep->class = EPD_MAC;
+ 		ep->length = 6;
++		free(p);
+ 		return 1;
+ 	}
+ 
++	if (p)
++		free(p);
++
+ 	/* see if our hostname corresponds to a reasonable IP address */
+ 	hp = gethostbyname(hostname);
+ 	if (hp != NULL) {
+diff --git a/pppd/plugins/pppol2tp/openl2tp.c b/pppd/plugins/pppol2tp/openl2tp.c
+index 9643b96..85ff0b5 100644
+--- a/pppd/plugins/pppol2tp/openl2tp.c
++++ b/pppd/plugins/pppol2tp/openl2tp.c
+@@ -246,6 +246,9 @@ out:
+ 		(*old_pppol2tp_ip_updown_hook)(tunnel_id, session_id, up);
+ 	}
+ 
++	if (user_name != NULL)
++		free(user_name);
++
+ 	return;
+ }
+ 
+diff --git a/pppd/plugins/radius/avpair.c b/pppd/plugins/radius/avpair.c
+index 716d23f..b22a0a2 100644
+--- a/pppd/plugins/radius/avpair.c
++++ b/pppd/plugins/radius/avpair.c
+@@ -121,7 +121,7 @@ VALUE_PAIR *rc_avpair_new (int attrid, void *pval, int len, int vendorcode)
+ 		if ((vp = (VALUE_PAIR *) malloc (sizeof (VALUE_PAIR)))
+ 							!= (VALUE_PAIR *) NULL)
+ 		{
+-			strncpy (vp->name, pda->name, sizeof (vp->name));
++			strlcpy (vp->name, pda->name, NAME_LENGTH);
+ 			vp->attribute = attrid;
+ 			vp->vendorcode = vendorcode;
+ 			vp->next = (VALUE_PAIR *) NULL;
+diff --git a/pppd/plugins/radius/config.c b/pppd/plugins/radius/config.c
+index a29e5e8..6e36d89 100644
+--- a/pppd/plugins/radius/config.c
++++ b/pppd/plugins/radius/config.c
+@@ -153,6 +153,7 @@ static int set_option_auo(char *filename, int line, OPTION *option, char *p)
+ 			*iptr = AUTH_RADIUS_FST;
+ 	else {
+ 		error("%s: auth_order: unknown keyword: %s", filename, p);
++		free(iptr);
+ 		return (-1);
+ 	}
+ 
+@@ -165,6 +166,7 @@ static int set_option_auo(char *filename, int line, OPTION *option, char *p)
+ 			*iptr = (*iptr) | AUTH_RADIUS_SND;
+ 		else {
+ 			error("%s: auth_order: unknown or unexpected keyword: %s", filename, p);
++			free(iptr);
+ 			return (-1);
+ 		}
+ 	}
+@@ -272,7 +274,7 @@ char *rc_conf_str(char *optname)
+ 
+ 	if (option == NULL)
+ 		fatal("rc_conf_str: unkown config option requested: %s", optname);
+-		return (char *)option->val;
++	return (char *)option->val;
+ }
+ 
+ int rc_conf_int(char *optname)
+diff --git a/pppd/plugins/radius/radius.c b/pppd/plugins/radius/radius.c
+index fbf8720..5f75aae 100644
+--- a/pppd/plugins/radius/radius.c
++++ b/pppd/plugins/radius/radius.c
+@@ -898,7 +898,7 @@ radius_acct_start(void)
+ 
+     rstate.start_time = time(NULL);
+ 
+-    strncpy(rstate.session_id, rc_mksid(), sizeof(rstate.session_id));
++    strlcpy(rstate.session_id, rc_mksid(), MAXSESSIONID);
+ 
+     rc_avpair_add(&send, PW_ACCT_SESSION_ID,
+ 		   rstate.session_id, 0, VENDOR_NONE);
+diff --git a/pppd/plugins/radius/radiusclient.h b/pppd/plugins/radius/radiusclient.h
+index 51b959a..cff0c26 100644
+--- a/pppd/plugins/radius/radiusclient.h
++++ b/pppd/plugins/radius/radiusclient.h
+@@ -440,6 +440,7 @@ UINT4 rc_get_ipaddr __P((char *));
+ int rc_good_ipaddr __P((char *));
+ const char *rc_ip_hostname __P((UINT4));
+ UINT4 rc_own_ipaddress __P((void));
++UINT4 rc_own_bind_ipaddress __P((void));
+ 
+ 
+ /*	sendserver.c		*/
+diff --git a/pppd/plugins/radius/radrealms.c b/pppd/plugins/radius/radrealms.c
+index 7a30370..cd006fd 100644
+--- a/pppd/plugins/radius/radrealms.c
++++ b/pppd/plugins/radius/radrealms.c
+@@ -68,10 +68,12 @@ lookup_realm(char const *user,
+     
+     if ((fd = fopen(radrealms_config, "r")) == NULL) {
+ 	option_error("cannot open %s", radrealms_config);
++	free(auths);
++	free(accts);
+ 	return;
+-    } 
++    }
+     info("Reading %s", radrealms_config);
+-    
++
+     while ((fgets(buffer, sizeof(buffer), fd) != NULL)) {
+ 	line++;
+ 
+@@ -87,6 +89,8 @@ lookup_realm(char const *user,
+ 	    fclose(fd);
+ 	    option_error("%s: invalid line %d: %s", radrealms_config,
+ 			 line, buffer);
++	    free(auths);
++	    free(accts);
+ 	    return;
+ 	}
+ 	info("Parsing '%s' entry:", p);
+@@ -101,6 +105,8 @@ lookup_realm(char const *user,
+ 	    fclose(fd);
+ 	    option_error("%s: realm name missing on line %d: %s",
+ 			 radrealms_config, line, buffer);
++	    free(auths);
++	    free(accts);
+ 	    return;
+ 	}
+ 
+@@ -111,6 +117,8 @@ lookup_realm(char const *user,
+ 		fclose(fd);
+ 		option_error("%s: server address missing on line %d: %s",
+ 			     radrealms_config, line, buffer);
++	        free(auths);
++	        free(accts);
+ 		return;
+ 	    }
+ 	    s->name[s->max] = strdup(p);
+@@ -119,6 +127,8 @@ lookup_realm(char const *user,
+ 		fclose(fd);
+ 		option_error("%s: server port missing on line %d:  %s",
+ 			     radrealms_config, line, buffer);
++		free(auths);
++		free(accts);
+ 		return;
+ 	    }
+ 	    s->port[s->max] = atoi(p);
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index 9803aeb..749ccc2 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -33,10 +33,10 @@ pppoe-discovery: pppoe-discovery.o debug.o
+ 	$(CC) $(LDFLAGS) -o pppoe-discovery pppoe-discovery.o debug.o
+ 
+ pppoe-discovery.o: pppoe-discovery.c
+-	$(CC) $(CFLAGS) -c -o pppoe-discovery.o pppoe-discovery.c
++	$(CC) $(CFLAGS) -I../../.. -c -o pppoe-discovery.o pppoe-discovery.c
+ 
+ debug.o: debug.c
+-	$(CC) $(CFLAGS) -c -o debug.o debug.c
++	$(CC) $(CFLAGS) -I../../.. -c -o debug.o debug.c
+ 
+ rp-pppoe.so: plugin.o discovery.o if.o common.o
+ 	$(CC) $(LDFLAGS) -o rp-pppoe.so -shared plugin.o discovery.o if.o common.o
+diff --git a/pppd/plugins/rp-pppoe/if.c b/pppd/plugins/rp-pppoe/if.c
+index 91e9a57..07b20b1 100644
+--- a/pppd/plugins/rp-pppoe/if.c
++++ b/pppd/plugins/rp-pppoe/if.c
+@@ -133,7 +133,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ 
+     /* Fill in hardware address */
+     if (hwaddr) {
+-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++	strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+ 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
+ 	    error("Can't get hardware address for %s: %m", ifname);
+ 	    close(fd);
+@@ -152,7 +152,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     /* Sanity check on MTU */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, SIOCGIFMTU, &ifr) < 0) {
+ 	error("Can't get MTU for %s: %m", ifname);
+     } else if (ifr.ifr_mtu < ETH_DATA_LEN) {
+@@ -166,7 +166,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     sa.sll_family = AF_PACKET;
+     sa.sll_protocol = htons(type);
+ 
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+ 	error("Could not get interface index for %s: %m", ifname);
+ 	close(fd);
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index c89be94..48fcea8 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -153,7 +153,7 @@ PPPOEConnectDevice(void)
+ 	error("Can't get MTU for %s: %m", conn->ifName);
+ 	goto errout;
+     }
+-    strncpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
+     if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
+ 	error("Can't get MTU for %s: %m", conn->ifName);
+ 	close(s);
+@@ -327,7 +327,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 
+     /* Try getting interface index */
+     if (r) {
+-	strncpy(ifr.ifr_name, cmd, sizeof(ifr.ifr_name));
++	strlcpy(ifr.ifr_name, cmd, sizeof(ifr.ifr_name));
+ 	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+ 	    r = 0;
+ 	} else {
+@@ -346,7 +346,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+     /* Close socket */
+     close(fd);
+     if (r && doit) {
+-	strncpy(devnam, cmd, sizeof(devnam));
++	strlcpy(devnam, cmd, sizeof(devnam));
+ 	if (the_channel != &pppoe_channel) {
+ 
+ 	    the_channel = &pppoe_channel;
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index bce71fc..5afb037 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -181,7 +181,8 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     sa.sll_family = AF_PACKET;
+     sa.sll_protocol = htons(type);
+ 
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
++    ifr.ifr_name[IFNAMSIZ - 1] = 0;
+     if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCFIGINDEX): Could not get interface index");
+     }
+diff --git a/pppd/plugins/rp-pppoe/pppoe.h b/pppd/plugins/rp-pppoe/pppoe.h
+index 813dcf3..8c4b8f7 100644
+--- a/pppd/plugins/rp-pppoe/pppoe.h
++++ b/pppd/plugins/rp-pppoe/pppoe.h
+@@ -22,6 +22,8 @@
+ #include <stdio.h>		/* For FILE */
+ #include <sys/types.h>		/* For pid_t */
+ 
++#include "pppd/pppd.h"		/* For error */
++
+ /* How do we access raw Ethernet devices? */
+ #undef USE_LINUX_PACKET
+ #undef USE_BPF
+diff --git a/pppd/plugins/winbind.c b/pppd/plugins/winbind.c
+index bb05acd..4638f46 100644
+--- a/pppd/plugins/winbind.c
++++ b/pppd/plugins/winbind.c
+@@ -432,6 +432,7 @@ unsigned int run_ntlm_auth(const char *username,
+ 
+         /* parent */
+         if (close(child_out[0]) == -1) {
++                close(child_in[1]);
+                 notice("error closing pipe?!? for child OUT[0]");
+                 return NOT_AUTHENTICATED;
+         }
+diff --git a/pppd/sys-linux.c b/pppd/sys-linux.c
+index 46e1ed4..761aafc 100644
+--- a/pppd/sys-linux.c
++++ b/pppd/sys-linux.c
+@@ -2167,7 +2167,6 @@ int ppp_available(void)
+ 		}
+ 	    }
+ 
+-	    close (s);
+ 	    if (!ok) {
+ 		slprintf(route_buffer, sizeof(route_buffer),
+ 			 "Sorry - PPP driver version %d.%d.%d is out of date\n",
+@@ -2177,6 +2176,7 @@ int ppp_available(void)
+ 	    }
+ 	}
+     }
++    close(s);
+     return ok;
+ }
+ 
+@@ -2653,7 +2653,10 @@ get_pty(master_fdp, slave_fdp, slave_name, uid)
+ 		warn("Couldn't unlock pty slave %s: %m", pty_name);
+ #endif
+ 	    if ((sfd = open(pty_name, O_RDWR | O_NOCTTY)) < 0)
++	    {
+ 		warn("Couldn't open pty slave %s: %m", pty_name);
++		close(mfd);
++	    }
+ 	}
+     }
+ #endif /* TIOCGPTN */
+diff --git a/pppstats/pppstats.c b/pppstats/pppstats.c
+index 46cb9c2..843f7ea 100644
+--- a/pppstats/pppstats.c
++++ b/pppstats/pppstats.c
+@@ -149,7 +149,8 @@ get_ppp_stats(curp)
+ #define ifr_name ifr__name
+ #endif
+ 
+-    strncpy(req.ifr_name, interface, sizeof(req.ifr_name));
++    strncpy(req.ifr_name, interface, IFNAMSIZ);
++    req.ifr_name[IFNAMSIZ - 1] = 0;
+     if (ioctl(s, SIOCGPPPSTATS, &req) < 0) {
+ 	fprintf(stderr, "%s: ", progname);
+ 	if (errno == ENOTTY)
+@@ -175,7 +176,8 @@ get_ppp_cstats(csp)
+ #define ifr_name ifr__name
+ #endif
+ 
+-    strncpy(creq.ifr_name, interface, sizeof(creq.ifr_name));
++    strncpy(creq.ifr_name, interface, IFNAMSIZ);
++    creq.ifr_name[IFNAMSIZ - 1] = 0;
+     if (ioctl(s, SIOCGPPPCSTATS, &creq) < 0) {
+ 	fprintf(stderr, "%s: ", progname);
+ 	if (errno == ENOTTY) {
+@@ -521,7 +523,8 @@ main(argc, argv)
+ #undef  ifr_name
+ #define ifr_name ifr_ifrn.ifrn_name
+ #endif
+-	strncpy(ifr.ifr_name, interface, sizeof(ifr.ifr_name));
++	strncpy(ifr.ifr_name, interface, IFNAMSIZ);
++	ifr.ifr_name[IFNAMSIZ - 1] = 0;
+ 	if (ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr) < 0) {
+ 	    fprintf(stderr, "%s: nonexistent interface '%s' specified\n",
+ 		    progname, interface);
+-- 
+2.20.1
+

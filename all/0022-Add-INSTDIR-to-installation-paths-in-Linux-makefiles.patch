@@ -1,0 +1,146 @@
+From f59ff103bcb3096e4678625d4d0481f808fd4844 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Sun, 4 Jun 2006 05:07:46 +0000
+Subject: [PATCH] Add $(INSTDIR) to installation paths in Linux makefiles.
+ Patch from Robert Vogelgesang.
+
+This patch re-introduces the possibility for package maintainers to
+install into a different filesystem tree. This is done by adding
+$(INSTROOT) at various places; the package maintainers can then
+issue a
+
+        make install INSTROOT=/some/where/else
+
+when they package pppd for their distribution.  In previous versions
+of the ppp package this was possible using the variable DESTDIR, but
+this variable is now used for a different purpose and cannot be
+changed via additional parameters of the make command.
+---
+ chat/Makefile.linux                  | 4 ++--
+ linux/Makefile.top                   | 4 ++--
+ pppd/Makefile.linux                  | 4 ++--
+ pppd/plugins/Makefile.linux          | 2 +-
+ pppd/plugins/radius/Makefile.linux   | 2 +-
+ pppd/plugins/rp-pppoe/Makefile.linux | 4 ++--
+ pppdump/Makefile.linux               | 2 +-
+ pppstats/Makefile.linux              | 4 ++--
+ 8 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/chat/Makefile.linux b/chat/Makefile.linux
+index 1519f29..1065ac5 100644
+--- a/chat/Makefile.linux
++++ b/chat/Makefile.linux
+@@ -1,6 +1,6 @@
+-#	$Id: Makefile.linux,v 1.14 2006/05/22 00:16:57 paulus Exp $
++#	$Id: Makefile.linux,v 1.15 2006/06/04 05:07:46 paulus Exp $
+ 
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ MANDIR = $(DESTDIR)/share/man/man8
+ 
+diff --git a/linux/Makefile.top b/linux/Makefile.top
+index 55405f1..f63d45e 100644
+--- a/linux/Makefile.top
++++ b/linux/Makefile.top
+@@ -1,10 +1,10 @@
+ # PPP top-level Makefile for Linux.
+ 
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ INCDIR = $(DESTDIR)/include
+ MANDIR = $(DESTDIR)/share/man
+-ETCDIR = @SYSCONF@/ppp
++ETCDIR = $(INSTROOT)@SYSCONF@/ppp
+ 
+ # uid 0 = root
+ INSTALL= install
+diff --git a/pppd/Makefile.linux b/pppd/Makefile.linux
+index 306f8f3..af8f6c6 100644
+--- a/pppd/Makefile.linux
++++ b/pppd/Makefile.linux
+@@ -1,10 +1,10 @@
+ #
+ # pppd makefile for Linux
+-# $Id: Makefile.linux,v 1.68 2005/07/12 01:50:23 paulus Exp $
++# $Id: Makefile.linux,v 1.69 2006/06/04 05:07:46 paulus Exp $
+ #
+ 
+ # Default installation locations
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ MANDIR = $(DESTDIR)/share/man/man8
+ INCDIR = $(DESTDIR)/include
+diff --git a/pppd/plugins/Makefile.linux b/pppd/plugins/Makefile.linux
+index a1f5c32..39f523a 100644
+--- a/pppd/plugins/Makefile.linux
++++ b/pppd/plugins/Makefile.linux
+@@ -4,7 +4,7 @@ CFLAGS	= $(COPTS) -I.. -I../../include -fPIC
+ LDFLAGS	= -shared
+ INSTALL	= install
+ 
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ MANDIR = $(DESTDIR)/share/man/man8
+ LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
+diff --git a/pppd/plugins/radius/Makefile.linux b/pppd/plugins/radius/Makefile.linux
+index 2b071aa..24ed3e5 100644
+--- a/pppd/plugins/radius/Makefile.linux
++++ b/pppd/plugins/radius/Makefile.linux
+@@ -3,7 +3,7 @@
+ # Copyright 2002 Roaring Penguin Software Inc.
+ #
+ 
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ MANDIR = $(DESTDIR)/share/man/man8
+ LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
+ 
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index 2ffa1c0..b874a23 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -10,10 +10,10 @@
+ # This program may be distributed according to the terms of the GNU
+ # General Public License, version 2 or (at your option) any later version.
+ #
+-# $Id: Makefile.linux,v 1.6 2004/11/14 07:58:37 paulus Exp $
++# $Id: Makefile.linux,v 1.7 2006/06/04 05:07:46 paulus Exp $
+ #***********************************************************************
+ 
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ LIBDIR = $(DESTDIR)/lib/pppd/$(PPPDVERSION)
+ 
+diff --git a/pppdump/Makefile.linux b/pppdump/Makefile.linux
+index 197e897..ac028f6 100644
+--- a/pppdump/Makefile.linux
++++ b/pppdump/Makefile.linux
+@@ -1,4 +1,4 @@
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ MANDIR = $(DESTDIR)/share/man/man8
+ 
+diff --git a/pppstats/Makefile.linux b/pppstats/Makefile.linux
+index 6b8fb47..cca6f0f 100644
+--- a/pppstats/Makefile.linux
++++ b/pppstats/Makefile.linux
+@@ -1,8 +1,8 @@
+ #
+ # pppstats makefile
+-# $Id: Makefile.linux,v 1.8 2004/10/31 22:09:03 paulus Exp $
++# $Id: Makefile.linux,v 1.9 2006/06/04 05:07:46 paulus Exp $
+ #
+-DESTDIR = @DESTDIR@
++DESTDIR = $(INSTROOT)@DESTDIR@
+ BINDIR = $(DESTDIR)/sbin
+ MANDIR = $(DESTDIR)/share/man/man8
+ 
+-- 
+2.20.1
+

@@ -1,0 +1,859 @@
+From e5b7cafa28aeba66499fa26b286192529e5fde15 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Mon, 7 Apr 2003 00:01:46 +0000
+Subject: [PATCH] Revert the previous change that required channel send_config
+ and recv_config routines to return a status code.  Instead we consider that
+ an error has occurred if the channel routine calls error() or bumps
+ error_count explicitly.
+
+---
+ pppd/main.c                    |  46 +++++++-
+ pppd/plugins/rp-pppoe/plugin.c |  20 ++--
+ pppd/pppd.h                    |  21 ++--
+ pppd/sys-linux.c               | 202 ++++++++++++++-------------------
+ pppd/sys-solaris.c             |  40 +++----
+ pppd/sys-sunos4.c              |  38 +++----
+ pppd/tty.c                     |   8 +-
+ pppd/utils.c                   |   3 +-
+ 8 files changed, 183 insertions(+), 195 deletions(-)
+
+diff --git a/pppd/main.c b/pppd/main.c
+index 6bb4b65..d92fdeb 100644
+--- a/pppd/main.c
++++ b/pppd/main.c
+@@ -40,7 +40,7 @@
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
+-#define RCSID	"$Id: main.c,v 1.125 2003/03/30 08:26:56 paulus Exp $"
++#define RCSID	"$Id: main.c,v 1.126 2003/04/07 00:01:45 paulus Exp $"
+ 
+ #include <stdio.h>
+ #include <ctype.h>
+@@ -175,6 +175,8 @@ struct pppd_stats link_stats;
+ unsigned link_connect_time;
+ int link_stats_valid;
+ 
++int error_count;
++
+ /*
+  * We maintain a list of child process pids and
+  * functions to call when they exit.
+@@ -1060,6 +1062,48 @@ get_input()
+     lcp_sprotrej(0, p - PPP_HDRLEN, len + PPP_HDRLEN);
+ }
+ 
++/*
++ * ppp_send_config - configure the transmit-side characteristics of
++ * the ppp interface.  Returns -1, indicating an error, if the channel
++ * send_config procedure called error() (or incremented error_count
++ * itself), otherwise 0.
++ */
++int
++ppp_send_config(unit, mtu, accm, pcomp, accomp)
++    int unit, mtu;
++    u_int32_t accm;
++    int pcomp, accomp;
++{
++	int errs;
++
++	if (the_channel->send_config == NULL)
++		return 0;
++	errs = error_count;
++	(*the_channel->send_config)(mtu, accm, pcomp, accomp);
++	return (error_count != errs)? -1: 0;
++}
++
++/*
++ * ppp_recv_config - configure the receive-side characteristics of
++ * the ppp interface.  Returns -1, indicating an error, if the channel
++ * recv_config procedure called error() (or incremented error_count
++ * itself), otherwise 0.
++ */
++int
++ppp_recv_config(unit, mru, accm, pcomp, accomp)
++    int unit, mru;
++    u_int32_t accm;
++    int pcomp, accomp;
++{
++	int errs;
++
++	if (the_channel->recv_config == NULL)
++		return 0;
++	errs = error_count;
++	(*the_channel->recv_config)(mru, accm, pcomp, accomp);
++	return (error_count != errs)? -1: 0;
++}
++
+ /*
+  * new_phase - signal the start of a new phase of pppd's operation.
+  */
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index 6885751..0ef4344 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -22,7 +22,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: plugin.c,v 1.8 2003/03/04 05:21:38 fcusack Exp $";
++"$Id: plugin.c,v 1.9 2003/04/07 00:01:46 paulus Exp $";
+ 
+ #define _GNU_SOURCE 1
+ #include "pppoe.h"
+@@ -180,7 +180,7 @@ PPPOEConnectDevice(void)
+     return conn->sessionSocket;
+ }
+ 
+-static int
++static void
+ PPPOESendConfig(int mtu,
+ 		u_int32_t asyncmap,
+ 		int pcomp,
+@@ -196,30 +196,26 @@ PPPOESendConfig(int mtu,
+     sock = socket(AF_INET, SOCK_DGRAM, 0);
+     if (sock < 0) {
+ 	error("Couldn't create IP socket: %m");
+-	return -1;
++	return;
+     }
+     strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+     ifr.ifr_mtu = mtu;
+     if (ioctl(sock, SIOCSIFMTU, &ifr) < 0) {
+-	error("ioctl(SIOCSIFMTU): %m");
+-	return -1;
++	error("Couldn't set interface MTU to %d: %m", mtu);
++	return;
+     }
+     (void) close (sock);
+-    return 0;
+ }
+ 
+ 
+-static int
++static void
+ PPPOERecvConfig(int mru,
+ 		u_int32_t asyncmap,
+ 		int pcomp,
+ 		int accomp)
+ {
+-    if (mru > MAX_PPPOE_MTU) {
+-	error("Couldn't increase MRU to %d", mru);
+-	return -1;
+-    }
+-    return 0;
++    if (mru > MAX_PPPOE_MTU)
++	warn("Couldn't increase MRU to %d", mru);
+ }
+ 
+ /**********************************************************************
+diff --git a/pppd/pppd.h b/pppd/pppd.h
+index 75b344f..14e0dc3 100644
+--- a/pppd/pppd.h
++++ b/pppd/pppd.h
+@@ -39,7 +39,7 @@
+  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  *
+- * $Id: pppd.h,v 1.81 2003/03/30 08:26:56 paulus Exp $
++ * $Id: pppd.h,v 1.82 2003/04/07 00:01:46 paulus Exp $
+  */
+ 
+ /*
+@@ -239,6 +239,7 @@ extern bool	devnam_fixed;	/* can no longer change devnam */
+ extern int	unsuccess;	/* # unsuccessful connection attempts */
+ extern int	do_callback;	/* set if we want to do callback next */
+ extern int	doing_callback;	/* set if this is a callback */
++extern int	error_count;	/* # of times error() has been called */
+ extern char	ppp_devnam[MAXPATHLEN];
+ extern char     remote_number[MAXNAMELEN]; /* Remote telephone number, if avail. */
+ extern int      ppp_session_number; /* Session number (eg PPPoE session) */
+@@ -439,9 +440,9 @@ struct channel {
+ 	/* take the channel out of PPP `mode', restore loopback if demand */
+ 	void (*disestablish_ppp) __P((int));
+ 	/* set the transmit-side PPP parameters of the channel */
+-	int (*send_config) __P((int, u_int32_t, int, int));
++	void (*send_config) __P((int, u_int32_t, int, int));
+ 	/* set the receive-side PPP parameters of the channel */
+-	int (*recv_config) __P((int, u_int32_t, int, int));
++	void (*recv_config) __P((int, u_int32_t, int, int));
+ 	/* cleanup on error or normal exit */
+ 	void (*cleanup) __P((void));
+ 	/* close the device, called in children after fork */
+@@ -450,14 +451,6 @@ struct channel {
+ 
+ extern struct channel *the_channel;
+ 
+-#define ppp_send_config(unit, mtu, accm, pc, acc)			 \
+-	(the_channel->send_config?					 \
+-	 (*the_channel->send_config)((mtu), (accm), (pc), (acc)): 0)
+-
+-#define ppp_recv_config(unit, mtu, accm, pc, acc)			 \
+-	(the_channel->recv_config?					 \
+-	 (*the_channel->recv_config)((mtu), (accm), (pc), (acc)): 0)
+-
+ /*
+  * Prototypes.
+  */
+@@ -487,6 +480,8 @@ void new_phase __P((int));	/* signal start of new phase */
+ void add_notifier __P((struct notifier **, notify_func, void *));
+ void remove_notifier __P((struct notifier **, notify_func, void *));
+ void notify __P((struct notifier *, int));
++int  ppp_send_config __P((int, int, u_int32_t, int, int));
++int  ppp_recv_config __P((int, int, u_int32_t, int, int));
+ 
+ /* Procedures exported from tty.c. */
+ void tty_init __P((void));
+@@ -588,11 +583,11 @@ void add_fd __P((int));		/* Add fd to set to wait for */
+ void remove_fd __P((int));	/* Remove fd from set to wait for */
+ int  read_packet __P((u_char *)); /* Read PPP packet */
+ int  get_loop_output __P((void)); /* Read pkts from loopback */
+-int  tty_send_config __P((int, u_int32_t, int, int));
++void tty_send_config __P((int, u_int32_t, int, int));
+ 				/* Configure i/f transmit parameters */
+ void tty_set_xaccm __P((ext_accm));
+ 				/* Set extended transmit ACCM */
+-int  tty_recv_config __P((int, u_int32_t, int, int));
++void tty_recv_config __P((int, u_int32_t, int, int));
+ 				/* Configure i/f receive parameters */
+ int  ccp_test __P((int, u_char *, int, int));
+ 				/* Test support for compression scheme */
+diff --git a/pppd/sys-linux.c b/pppd/sys-linux.c
+index 0b6db1c..8ec9ba7 100644
+--- a/pppd/sys-linux.c
++++ b/pppd/sys-linux.c
+@@ -183,7 +183,14 @@ static int master_fd = -1;
+ #ifdef INET6
+ static int sock6_fd = -1;
+ #endif /* INET6 */
++
++/*
++ * For the old-style kernel driver, this is the same as ppp_fd.
++ * For the new-style driver, it is the fd of an instance of /dev/ppp
++ * which is attached to the ppp unit and is used for controlling it.
++ */
+ int ppp_dev_fd = -1;		/* fd for /dev/ppp (new style driver) */
++
+ static int chindex;		/* channel index (new style driver) */
+ 
+ static fd_set in_fds;		/* set of fds that wait_input waits for */
+@@ -224,8 +231,7 @@ static int kernel_version;
+ #define SIN_ADDR(x)	(((struct sockaddr_in *) (&(x)))->sin_addr.s_addr)
+ 
+ /* Prototypes for procedures local to this file. */
+-static int get_flags (int fd);
+-static int set_flags (int fd, int flags);
++static int modify_flags(int fd, int clear_bits, int set_bits);
+ static int translate_speed (int bps);
+ static int baud_rate_of (int speed);
+ static void close_route_table (void);
+@@ -278,38 +284,26 @@ static int still_ppp(void)
+ 	return 0;
+ }
+ 
+-/********************************************************************
+- *
+- * Functions to read and set the flags value in the device driver
++/*
++ * modify_flags - set and clear flag bits controlling the kernel
++ * PPP driver.
+  */
+-
+-static int get_flags (int fd)
++static int modify_flags(int fd, int clear_bits, int set_bits)
+ {
+-    int flags;
+-
+-    if (ioctl(fd, PPPIOCGFLAGS, (caddr_t) &flags) < 0) {
+-	if ( ok_error (errno) )
+-	    flags = 0;
+-	else
+-	    fatal("ioctl(PPPIOCGFLAGS): %m (line %d)", __LINE__);
+-    }
+-
+-    SYSDEBUG ((LOG_DEBUG, "get flags = %x\n", flags));
+-    return flags;
+-}
++	int flags;
+ 
+-/********************************************************************/
++	if (ioctl(fd, PPPIOCGFLAGS, &flags) == -1)
++		goto err;
++	flags = (flags & ~clear_bits) | set_bits;
++	if (ioctl(fd, PPPIOCSFLAGS, &flags) == -1)
++		goto err;
+ 
+-static int set_flags (int fd, int flags)
+-{
+-    SYSDEBUG ((LOG_DEBUG, "set flags = %x\n", flags));
++	return 0;
+ 
+-    if (ioctl(fd, PPPIOCSFLAGS, (caddr_t) &flags) < 0) {
+-	if (! ok_error (errno) )
+-	    error("Failed to set PPP kernel option flags: %m", flags);
++ err:
++	if (errno != EIO)
++		error("Failed to set PPP kernel option flags: %m");
+ 	return -1;
+-    }
+-    return 0;
+ }
+ 
+ /********************************************************************
+@@ -367,7 +361,7 @@ void sys_cleanup(void)
+ void
+ sys_close(void)
+ {
+-    if (new_style_driver)
++    if (new_style_driver && ppp_dev_fd >= 0)
+ 	close(ppp_dev_fd);
+     if (sock_fd >= 0)
+ 	close(sock_fd);
+@@ -388,7 +382,7 @@ sys_close(void)
+ 
+ static int set_kdebugflag (int requested_level)
+ {
+-    if (new_style_driver && ifunit < 0)
++    if (ppp_dev_fd < 0)
+ 	return 1;
+     if (ioctl(ppp_dev_fd, PPPIOCSDEBUG, &requested_level) < 0) {
+ 	if ( ! ok_error (errno) )
+@@ -446,8 +440,8 @@ int tty_establish_ppp (int tty_fd)
+ 		 | SC_LOG_FLUSH)
+ 
+     if (ret_fd >= 0) {
+-	set_flags(ppp_fd, ((get_flags(ppp_fd) & ~(SC_RCVB | SC_LOGB))
+-			   | ((kdebugflag * SC_DEBUG) & SC_LOGB)));
++	modify_flags(ppp_fd, SC_RCVB | SC_LOGB,
++		     (kdebugflag * SC_DEBUG) & SC_LOGB);
+     } else {
+ 	if (ioctl(tty_fd, TIOCSETD, &tty_disc) < 0 && !ok_error(errno))
+ 	    warn("Couldn't reset tty to normal line discipline: %m");
+@@ -499,7 +493,7 @@ int generic_establish_ppp (int fd)
+ 	}
+ 
+ 	if (looped)
+-	    set_flags(ppp_dev_fd, get_flags(ppp_dev_fd) & ~SC_LOOP_TRAFFIC);
++	    modify_flags(ppp_dev_fd, SC_LOOP_TRAFFIC, 0);
+ 
+ 	if (!multilink) {
+ 	    add_fd(ppp_dev_fd);
+@@ -535,14 +529,14 @@ int generic_establish_ppp (int fd)
+ 	}
+     }
+ 
+-    looped = 0;
+-
+     /*
+      * Enable debug in the driver if requested.
+      */
+     if (!looped)
+ 	set_kdebugflag (kdebugflag);
+ 
++    looped = 0;
++
+     SYSDEBUG ((LOG_NOTICE, "Using version %d.%d.%d of PPP driver",
+ 	    driver_version, driver_modification, driver_patch));
+ 
+@@ -608,9 +602,9 @@ void generic_disestablish_ppp(int dev_fd)
+ 	close(ppp_fd);
+ 	ppp_fd = -1;
+ 	if (demand) {
+-	    set_flags(ppp_dev_fd, get_flags(ppp_dev_fd) | SC_LOOP_TRAFFIC);
++	    modify_flags(ppp_dev_fd, 0, SC_LOOP_TRAFFIC);
+ 	    looped = 1;
+-	} else if (ifunit >= 0) {
++	} else if (ppp_dev_fd >= 0) {
+ 	    close(ppp_dev_fd);
+ 	    remove_fd(ppp_dev_fd);
+ 	    ppp_dev_fd = -1;
+@@ -619,6 +613,8 @@ void generic_disestablish_ppp(int dev_fd)
+ 	/* old-style driver */
+ 	if (demand)
+ 	    set_ppp_fd(slave_fd);
++	else
++	    ppp_dev_fd = -1;
+     }
+ }
+ 
+@@ -660,20 +656,16 @@ static int make_ppp_unit()
+  */
+ void cfg_bundle(int mrru, int mtru, int rssn, int tssn)
+ {
+-	int flags;
+-
+ 	if (!new_style_driver)
+ 		return;
+ 
+ 	/* set the mrru, mtu and flags */
+ 	if (ioctl(ppp_dev_fd, PPPIOCSMRRU, &mrru) < 0)
+ 		error("Couldn't set MRRU: %m");
+-	flags = get_flags(ppp_dev_fd);
+-	flags &= ~(SC_MP_SHORTSEQ | SC_MP_XSHORTSEQ);
+-	flags |= (rssn? SC_MP_SHORTSEQ: 0) | (tssn? SC_MP_XSHORTSEQ: 0)
+-		| (mrru? SC_MULTILINK: 0);
+ 
+-	set_flags(ppp_dev_fd, flags);
++	modify_flags(ppp_dev_fd, SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ|SC_MULTILINK,
++		     ((rssn? SC_MP_SHORTSEQ: 0) | (tssn? SC_MP_XSHORTSEQ: 0)
++		      | (mrru? SC_MULTILINK: 0)));
+ 
+ 	/* connect up the channel */
+ 	if (ioctl(ppp_fd, PPPIOCCONNECT, &ifunit) < 0)
+@@ -724,7 +716,7 @@ int bundle_attach(int ifnum)
+ 	}
+ 	if (ioctl(ppp_fd, PPPIOCCONNECT, &ifnum) < 0)
+ 		fatal("Couldn't connect to interface unit %d: %m", ifnum);
+-	set_flags(master_fd, get_flags(master_fd) | SC_MULTILINK);
++	modify_flags(master_fd, 0, SC_MULTILINK);
+ 	close(master_fd);
+ 
+ 	ifunit = ifnum;
+@@ -1029,7 +1021,7 @@ void output (int unit, unsigned char *p, int len)
+ 	p += 2;
+ 	len -= 2;
+ 	proto = (p[0] << 8) + p[1];
+-	if (ifunit >= 0 && !(proto >= 0xc000 || proto == PPP_CCPFRAG))
++	if (ppp_dev_fd >= 0 && !(proto >= 0xc000 || proto == PPP_CCPFRAG))
+ 	    fd = ppp_dev_fd;
+     }
+     if (write(fd, p, len) < 0) {
+@@ -1104,7 +1096,7 @@ int read_packet (unsigned char *buf)
+ 	if (nr < 0 && errno == ENXIO)
+ 	    return 0;
+     }
+-    if (nr < 0 && new_style_driver && ifunit >= 0) {
++    if (nr < 0 && new_style_driver && ppp_dev_fd >= 0) {
+ 	/* N.B. we read ppp_fd first since LCP packets come in there. */
+ 	nr = read(ppp_dev_fd, buf, len);
+ 	if (nr < 0 && errno != EWOULDBLOCK && errno != EIO && errno != EINTR)
+@@ -1189,30 +1181,23 @@ netif_get_mtu(int unit)
+  * the ppp interface.
+  */
+ 
+-int tty_send_config (int mtu,u_int32_t asyncmap,int pcomp,int accomp)
++void tty_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
+ {
+-    u_int x;
++	int x;
+ 
+-/*
+- * Set the asyncmap and other parameters for the ppp device
+- */
+-    if (!still_ppp())
+-	return 0;
+-    link_mtu = mtu;
+-    SYSDEBUG ((LOG_DEBUG, "send_config: asyncmap = %lx\n", asyncmap));
+-    if (ioctl(ppp_fd, PPPIOCSASYNCMAP, (caddr_t) &asyncmap) < 0) {
+-	if (errno != EIO && errno != ENOTTY)
+-	    error("Couldn't set transmit async character map: %m");
+-	else if (debug)
+-	    dbglog("PPPIOCSASYNCMAP: %m");
+-	return -1;
+-    }
++	if (!still_ppp())
++		return;
++	link_mtu = mtu;
++	if (ioctl(ppp_fd, PPPIOCSASYNCMAP, (caddr_t) &asyncmap) < 0) {
++		if (errno != EIO && errno != ENOTTY)
++			error("Couldn't set transmit async character map: %m");
++		++error_count;
++		return;
++	}
+ 
+-    x = get_flags(ppp_fd);
+-    x = pcomp  ? x | SC_COMP_PROT : x & ~SC_COMP_PROT;
+-    x = accomp ? x | SC_COMP_AC   : x & ~SC_COMP_AC;
+-    x = sync_serial ? x | SC_SYNC : x & ~SC_SYNC;
+-    return set_flags(ppp_fd, x);
++	x = (pcomp? SC_COMP_PROT: 0) | (accomp? SC_COMP_AC: 0)
++	    | (sync_serial? SC_SYNC: 0);
++	modify_flags(ppp_fd, SC_COMP_PROT|SC_COMP_AC|SC_SYNC, x);
+ }
+ 
+ /********************************************************************
+@@ -1239,42 +1224,29 @@ void tty_set_xaccm (ext_accm accm)
+  * the ppp interface.
+  */
+ 
+-int tty_recv_config (int mru,u_int32_t asyncmap,int pcomp,int accomp)
++void tty_recv_config(int mru, u_int32_t asyncmap, int pcomp, int accomp)
+ {
+-    int ret = 0;
+-
+-    SYSDEBUG ((LOG_DEBUG, "recv_config: mru = %d\n", mru));
+ /*
+  * If we were called because the link has gone down then there is nothing
+  * which may be done. Just return without incident.
+  */
+-    if (!still_ppp())
+-	return 0;
++	if (!still_ppp())
++		return 0;
+ /*
+  * Set the receiver parameters
+  */
+-    if (ioctl(ppp_fd, PPPIOCSMRU, (caddr_t) &mru) < 0) {
+-	if (errno != EIO && errno != ENOTTY)
+-	    error("Couldn't set channel receive MRU: %m");
+-	else if (debug)
+-	    dbglog("PPPIOCSMRU: %m");
+-	ret = -1;
+-    }
+-    if (new_style_driver && ifunit >= 0
+-	&& ioctl(ppp_dev_fd, PPPIOCSMRU, (caddr_t) &mru) < 0) {
+-	error("Couldn't set MRU in generic PPP layer: %m");
+-	ret = -1;
+-    }
++	if (ioctl(ppp_fd, PPPIOCSMRU, (caddr_t) &mru) < 0) {
++		if (errno != EIO && errno != ENOTTY)
++			error("Couldn't set channel receive MRU: %m");
++	}
++	if (new_style_driver && ppp_dev_fd >= 0
++	    && ioctl(ppp_dev_fd, PPPIOCSMRU, (caddr_t) &mru) < 0)
++		error("Couldn't set MRU in generic PPP layer: %m");
+ 
+-    SYSDEBUG ((LOG_DEBUG, "recv_config: asyncmap = %lx\n", asyncmap));
+-    if (ioctl(ppp_fd, PPPIOCSRASYNCMAP, (caddr_t) &asyncmap) < 0) {
+-	if (errno != EIO && errno != ENOTTY)
+-	    error("Couldn't set channel receive asyncmap: %m");
+-	else if (debug)
+-	    dbglog("PPPIOCSRASYNCMAP: %m");
+-	ret = -1;
+-    }
+-    return ret;
++	if (ioctl(ppp_fd, PPPIOCSRASYNCMAP, (caddr_t) &asyncmap) < 0) {
++		if (errno != EIO && errno != ENOTTY)
++			error("Couldn't set channel receive asyncmap: %m");
++	}
+ }
+ 
+ /********************************************************************
+@@ -1306,12 +1278,11 @@ ccp_test(int unit, u_char *opt_ptr, int opt_len, int for_transmit)
+ 
+ void ccp_flags_set (int unit, int isopen, int isup)
+ {
+-    if (still_ppp() && ifunit >= 0) {
+-	int x = get_flags(ppp_dev_fd);
+-	x = isopen? x | SC_CCP_OPEN : x &~ SC_CCP_OPEN;
+-	x = isup?   x | SC_CCP_UP   : x &~ SC_CCP_UP;
+-	set_flags (ppp_dev_fd, x);
+-    }
++	int x;
++
++	x = (isopen? SC_CCP_OPEN: 0) | (isup? SC_CCP_UP: 0);
++	if (still_ppp() && ppp_dev_fd >= 0)
++		modify_flags(ppp_dev_fd, SC_CCP_OPEN|SC_CCP_UP, x);
+ }
+ 
+ #ifdef PPP_FILTER
+@@ -1388,9 +1359,13 @@ get_ppp_stats(u, stats)
+ 
+ int ccp_fatal_error (int unit)
+ {
+-    int x = get_flags(ppp_dev_fd);
++	int flags;
+ 
+-    return x & SC_DC_FERROR;
++	if (ioctl(ppp_dev_fd, PPPIOCGFLAGS, &flags) < 0) {
++		error("Couldn't read compression error flags: %m");
++		flags = 0;
++	}
++	return flags & SC_DC_FERROR;
+ }
+ 
+ /********************************************************************
+@@ -2254,21 +2229,18 @@ void logwtmp (const char *line, const char *name, const char *host)
+ 
+ int sifvjcomp (int u, int vjcomp, int cidcomp, int maxcid)
+ {
+-    u_int x = get_flags(ppp_dev_fd);
++	u_int x;
+ 
+-    if (vjcomp) {
+-	if (ioctl (ppp_dev_fd, PPPIOCSMAXCID, (caddr_t) &maxcid) < 0) {
+-	    if (! ok_error (errno))
+-		error("ioctl(PPPIOCSMAXCID): %m (line %d)", __LINE__);
+-	    vjcomp = 0;
++	if (vjcomp) {
++		if (ioctl(ppp_dev_fd, PPPIOCSMAXCID, (caddr_t) &maxcid) < 0)
++			error("Couldn't set up TCP header compression: %m");
++		vjcomp = 0;
+ 	}
+-    }
+ 
+-    x = vjcomp  ? x | SC_COMP_TCP     : x &~ SC_COMP_TCP;
+-    x = cidcomp ? x & ~SC_NO_TCP_CCID : x | SC_NO_TCP_CCID;
+-    set_flags (ppp_dev_fd, x);
++	x = (vjcomp? SC_COMP_TCP: 0) | (cidcomp? 0: SC_NO_TCP_CCID);
++	modify_flags(ppp_dev_fd, SC_COMP_TCP|SC_NO_TCP_CCID, x);
+ 
+-    return 1;
++	return 1;
+ }
+ 
+ /********************************************************************
+@@ -2665,7 +2637,7 @@ open_ppp_loopback(void)
+ 	/* allocate ourselves a ppp unit */
+ 	if (make_ppp_unit() < 0)
+ 	    die(1);
+-	set_flags(ppp_dev_fd, SC_LOOP_TRAFFIC);
++	modify_flags(ppp_dev_fd, 0, SC_LOOP_TRAFFIC);
+ 	set_kdebugflag(kdebugflag);
+ 	ppp_fd = -1;
+ 	return ppp_dev_fd;
+diff --git a/pppd/sys-solaris.c b/pppd/sys-solaris.c
+index d3675f6..d134fe9 100644
+--- a/pppd/sys-solaris.c
++++ b/pppd/sys-solaris.c
+@@ -90,7 +90,7 @@
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
+-#define RCSID	"$Id: sys-solaris.c,v 1.10 2003/03/03 05:11:46 paulus Exp $"
++#define RCSID	"$Id: sys-solaris.c,v 1.11 2003/04/07 00:01:46 paulus Exp $"
+ 
+ #include <limits.h>
+ #include <stdio.h>
+@@ -1539,38 +1539,33 @@ netif_set_mtu(unit, mtu)
+  * tty_send_config - configure the transmit characteristics of
+  * the ppp interface.
+  */
+-int
++void
+ tty_send_config(mtu, asyncmap, pcomp, accomp)
+     int mtu;
+     u_int32_t asyncmap;
+     int pcomp, accomp;
+ {
+     int cf[2];
+-    int ret = 0;
+ 
+     link_mtu = mtu;
+     if (strioctl(pppfd, PPPIO_MTU, &mtu, sizeof(mtu), 0) < 0) {
+-	if (hungup && errno == ENXIO)
+-	    return -1;
++	if (hungup && errno == ENXIO) {
++	    ++error_count;
++	    return;
++	}
+ 	error("Couldn't set MTU: %m");
+-	ret = -1;
+     }
+     if (fdmuxid >= 0) {
+ 	if (!sync_serial) {
+-	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
++	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
+ 		error("Couldn't set transmit ACCM: %m");
+-		ret = -1;
+-	    }
+ 	}
+ 	cf[0] = (pcomp? COMP_PROT: 0) + (accomp? COMP_AC: 0);
+ 	cf[1] = COMP_PROT | COMP_AC;
+ 	if (any_compressions() &&
+-	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
++	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
+ 	    error("Couldn't set prot/AC compression: %m");
+-	    ret = -1;
+-	}
+     }
+-    return ret;
+ }
+ 
+ /*
+@@ -1594,38 +1589,33 @@ tty_set_xaccm(accm)
+  * tty_recv_config - configure the receive-side characteristics of
+  * the ppp interface.
+  */
+-int
++void
+ tty_recv_config(mru, asyncmap, pcomp, accomp)
+     int mru;
+     u_int32_t asyncmap;
+     int pcomp, accomp;
+ {
+     int cf[2];
+-    int ret = 0;
+ 
+     link_mru = mru;
+     if (strioctl(pppfd, PPPIO_MRU, &mru, sizeof(mru), 0) < 0) {
+-	if (hungup && errno == ENXIO)
+-	    return -1;
++	if (hungup && errno == ENXIO) {
++	    ++error_count;
++	    return;
++	}
+ 	error("Couldn't set MRU: %m");
+-	ret = -1;
+     }
+     if (fdmuxid >= 0) {
+ 	if (!sync_serial) {
+-	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
++	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
+ 		error("Couldn't set receive ACCM: %m");
+-		ret = -1;
+-	    }
+ 	}
+ 	cf[0] = (pcomp? DECOMP_PROT: 0) + (accomp? DECOMP_AC: 0);
+ 	cf[1] = DECOMP_PROT | DECOMP_AC;
+ 	if (any_compressions() &&
+-	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
++	    strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
+ 	    error("Couldn't set prot/AC decompression: %m");
+-	    ret = -1;
+-	}
+     }
+-    return ret;
+ }
+ 
+ /*
+diff --git a/pppd/sys-sunos4.c b/pppd/sys-sunos4.c
+index cb1b248..f4cabda 100644
+--- a/pppd/sys-sunos4.c
++++ b/pppd/sys-sunos4.c
+@@ -73,7 +73,7 @@
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
+-#define RCSID	"$Id: sys-sunos4.c,v 1.31 2003/03/03 05:11:46 paulus Exp $"
++#define RCSID	"$Id: sys-sunos4.c,v 1.32 2003/04/07 00:01:46 paulus Exp $"
+ 
+ #include <stdio.h>
+ #include <stddef.h>
+@@ -810,26 +810,21 @@ tty_send_config(mtu, asyncmap, pcomp, accomp)
+     int pcomp, accomp;
+ {
+     int cf[2];
+-    int ret = 0;
+ 
+     link_mtu = mtu;
+     if (strioctl(pppfd, PPPIO_MTU, &mtu, sizeof(mtu), 0) < 0) {
+-	if (hungup && errno == ENXIO)
+-	    return -1;
++	if (hungup && errno == ENXIO) {
++	    ++error_count;
++	    return;
++	}
+ 	error("Couldn't set MTU: %m");
+-	ret = -1;
+     }
+-    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
++    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
+ 	error("Couldn't set transmit ACCM: %m");
+-	ret = -1;
+-    }
+     cf[0] = (pcomp? COMP_PROT: 0) + (accomp? COMP_AC: 0);
+     cf[1] = COMP_PROT | COMP_AC;
+-    if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
++    if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
+ 	error("Couldn't set prot/AC compression: %m");
+-	ret = -1;
+-    }
+-    return ret;
+ }
+ 
+ /*
+@@ -850,33 +845,28 @@ tty_set_xaccm(unit, accm)
+  * tty_recv_config - configure the receive-side characteristics of
+  * the ppp interface.
+  */
+-int
++void
+ tty_recv_config(mru, asyncmap, pcomp, accomp)
+     int mru;
+     u_int32_t asyncmap;
+     int pcomp, accomp;
+ {
+     int cf[2];
+-    int ret = 0;
+ 
+     link_mru = mru;
+     if (strioctl(pppfd, PPPIO_MRU, &mru, sizeof(mru), 0) < 0) {
+-	if (hungup && errno == ENXIO)
+-	    return -1;
++	if (hungup && errno == ENXIO) {
++	    ++error_count;
++	    return;
++	}
+ 	error("Couldn't set MRU: %m");
+-	ret = -1;
+     }
+-    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0) {
++    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
+ 	error("Couldn't set receive ACCM: %m");
+-	ret = -1;
+-    }
+     cf[0] = (pcomp? DECOMP_PROT: 0) + (accomp? DECOMP_AC: 0);
+     cf[1] = DECOMP_PROT | DECOMP_AC;
+-    if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0) {
++    if (strioctl(pppfd, PPPIO_CFLAGS, cf, sizeof(cf), sizeof(int)) < 0)
+ 	error("Couldn't set prot/AC decompression: %m");
+-	ret = -1;
+-    }
+-    return ret;
+ }
+ 
+ /*
+diff --git a/pppd/tty.c b/pppd/tty.c
+index 9fa0326..dcdb825 100644
+--- a/pppd/tty.c
++++ b/pppd/tty.c
+@@ -73,7 +73,7 @@
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
+-#define RCSID	"$Id: tty.c,v 1.11 2003/03/03 05:11:46 paulus Exp $"
++#define RCSID	"$Id: tty.c,v 1.12 2003/04/07 00:01:46 paulus Exp $"
+ 
+ #include <stdio.h>
+ #include <ctype.h>
+@@ -108,7 +108,7 @@ int  connect_tty __P((void));
+ void disconnect_tty __P((void));
+ void tty_close_fds __P((void));
+ void cleanup_tty __P((void));
+-int  tty_do_send_config __P((int, u_int32_t, int, int));
++void tty_do_send_config __P((int, u_int32_t, int, int));
+ 
+ static int setdevname __P((char *, char **, int));
+ static int setspeed __P((char *, char **, int));
+@@ -772,14 +772,14 @@ void cleanup_tty()
+  * tty_do_send_config - set transmit-side PPP configuration.
+  * We set the extended transmit ACCM here as well.
+  */
+-int
++void
+ tty_do_send_config(mtu, accm, pcomp, accomp)
+     int mtu;
+     u_int32_t accm;
+     int pcomp, accomp;
+ {
+ 	tty_set_xaccm(xmit_accm);
+-	return tty_send_config(mtu, accm, pcomp, accomp);
++	tty_send_config(mtu, accm, pcomp, accomp);
+ }
+ 
+ /*
+diff --git a/pppd/utils.c b/pppd/utils.c
+index fb2c6aa..31f9b52 100644
+--- a/pppd/utils.c
++++ b/pppd/utils.c
+@@ -33,7 +33,7 @@
+  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
+-#define RCSID	"$Id: utils.c,v 1.21 2003/03/30 08:26:56 paulus Exp $"
++#define RCSID	"$Id: utils.c,v 1.22 2003/04/07 00:01:46 paulus Exp $"
+ 
+ #include <stdio.h>
+ #include <ctype.h>
+@@ -720,6 +720,7 @@ error __V((char *fmt, ...))
+ 
+     logit(LOG_ERR, fmt, pvar);
+     va_end(pvar);
++    ++error_count;
+ }
+ 
+ /*
+-- 
+2.20.1
+

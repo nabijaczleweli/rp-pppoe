@@ -1,0 +1,168 @@
+From 5d490c4106f4a34864c980b925e183cf3bf575e2 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Tue, 13 Jan 2004 04:03:58 +0000
+Subject: [PATCH] PPPoE updates: don't exit if discovery fails, cope with both
+ protocol field compression and no compression, recognize nasXXX and tapXXX as
+ devices over which we can do PPPoE. Patches sent by Marco d'Itri.
+
+---
+ pppd/plugins/rp-pppoe/common.c    | 41 ++++++++++++++++++++++---------
+ pppd/plugins/rp-pppoe/discovery.c |  8 +++---
+ pppd/plugins/rp-pppoe/plugin.c    | 12 +++++----
+ 3 files changed, 42 insertions(+), 19 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/common.c b/pppd/plugins/rp-pppoe/common.c
+index a285b48..a39e97a 100644
+--- a/pppd/plugins/rp-pppoe/common.c
++++ b/pppd/plugins/rp-pppoe/common.c
+@@ -14,7 +14,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: common.c,v 1.1 2001/12/14 02:55:20 mostrows Exp $";
++"$Id: common.c,v 1.2 2004/01/13 04:03:58 paulus Exp $";
+ 
+ #include "pppoe.h"
+ 
+@@ -178,6 +178,7 @@ strDup(char const *str)
+     return copy;
+ }
+ 
++#ifdef PPPOE_STANDALONE
+ /**********************************************************************
+ *%FUNCTION: computeTCPChecksum
+ *%ARGUMENTS:
+@@ -248,21 +249,38 @@ clampMSS(PPPoEPacket *packet, char const *dir, int clampMss)
+     unsigned char *mssopt = NULL;
+     UINT16_t csum;
+ 
+-    int len;
++    int len, minlen;
+ 
+-    /* Is it IPv4? */
+-    if (packet->payload[0] != 0x00 ||
+-	packet->payload[1] != 0x21) {
+-	/* Nope, ignore it */
+-	return;
+-    }
++    /* check PPP protocol type */
++    if (packet->payload[0] & 0x01) {
++        /* 8 bit protocol type */
+ 
+-    ipHdr = packet->payload + 2;
++        /* Is it IPv4? */
++        if (packet->payload[0] != 0x21) {
++            /* Nope, ignore it */
++            return;
++        }
++
++        ipHdr = packet->payload + 1;
++	minlen = 41;
++    } else {
++        /* 16 bit protocol type */
++
++        /* Is it IPv4? */
++        if (packet->payload[0] != 0x00 ||
++            packet->payload[1] != 0x21) {
++            /* Nope, ignore it */
++            return;
++        }
++
++        ipHdr = packet->payload + 2;
++	minlen = 42;
++    }
+ 
+     /* Is it too short? */
+     len = (int) ntohs(packet->length);
+-    if (len < 42) {
+-	/* 20 byte IP header; 20 byte TCP header; 2 byte PPP protocol */
++    if (len < minlen) {
++	/* 20 byte IP header; 20 byte TCP header; at least 1 or 2 byte PPP protocol */
+ 	return;
+     }
+ 
+@@ -362,6 +380,7 @@ clampMSS(PPPoEPacket *packet, char const *dir, int clampMss)
+     csum = computeTCPChecksum(ipHdr, tcpHdr);
+     (* (UINT16_t *) (tcpHdr+16)) = csum;
+ }
++#endif /* PPPOE_STANDALONE */
+ 
+ /***********************************************************************
+ *%FUNCTION: sendPADT
+diff --git a/pppd/plugins/rp-pppoe/discovery.c b/pppd/plugins/rp-pppoe/discovery.c
+index d2c3a89..e05b773 100644
+--- a/pppd/plugins/rp-pppoe/discovery.c
++++ b/pppd/plugins/rp-pppoe/discovery.c
+@@ -9,7 +9,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: discovery.c,v 1.1 2001/12/14 02:55:20 mostrows Exp $";
++"$Id: discovery.c,v 1.2 2004/01/13 04:03:58 paulus Exp $";
+ 
+ #include "pppoe.h"
+ 
+@@ -602,7 +602,8 @@ discovery(PPPoEConnection *conn)
+     do {
+ 	padiAttempts++;
+ 	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+-	    rp_fatal("Timeout waiting for PADO packets");
++	    warn("Timeout waiting for PADO packets");
++	    return;
+ 	}
+ 	sendPADI(conn);
+ 	conn->discoveryState = STATE_SENT_PADI;
+@@ -629,7 +630,8 @@ discovery(PPPoEConnection *conn)
+     do {
+ 	padrAttempts++;
+ 	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+-	    rp_fatal("Timeout waiting for PADS packets");
++	    warn("Timeout waiting for PADS packets");
++	    return;
+ 	}
+ 	sendPADR(conn);
+ 	conn->discoveryState = STATE_SENT_PADR;
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index 0ef4344..00316ae 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -22,7 +22,7 @@
+ ***********************************************************************/
+ 
+ static char const RCSID[] =
+-"$Id: plugin.c,v 1.9 2003/04/07 00:01:46 paulus Exp $";
++"$Id: plugin.c,v 1.10 2004/01/13 04:03:58 paulus Exp $";
+ 
+ #define _GNU_SOURCE 1
+ #include "pppoe.h"
+@@ -144,7 +144,8 @@ PPPOEConnectDevice(void)
+     } else {
+ 	discovery(conn);
+ 	if (conn->discoveryState != STATE_SESSION) {
+-	    fatal("Unable to complete PPPoE Discovery");
++	    error("Unable to complete PPPoE Discovery");
++	    return -1;
+ 	}
+     }
+ 
+@@ -276,13 +277,14 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+     int fd;
+     struct ifreq ifr;
+ 
+-    /* Only do it if name is "ethXXX" or "nic-XXXX.  In latter case,
+-       strip off the "nic-" */
++    /* Only do it if name is "ethXXX", "nasXXX", "tapXXX" or "nic-XXXX.
++       In latter case strip off the "nic-" */
+     /* Thanks to Russ Couturier for this fix */
+     if (strlen(cmd) > 4 && !strncmp(cmd, "nic-", 4)) {
+ 	/* Strip off "nic-" */
+ 	cmd += 4;
+-    } else if (strlen(cmd) < 4 || strncmp(cmd, "eth", 3)) {
++    } else if (strlen(cmd) < 4 || (strncmp(cmd, "eth", 3) &&
++		strncmp(cmd, "nas", 3) && strncmp(cmd, "tap", 3))) {
+ 	if (OldDevnameHook) return OldDevnameHook(cmd, argv, doit);
+ 	return 0;
+     }
+-- 
+2.20.1
+

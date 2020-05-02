@@ -1,0 +1,44 @@
+From 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a Mon Sep 17 00:00:00 2001
+From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Date: Fri, 4 Oct 2019 19:40:46 +0200
+Subject: [PATCH] pppd: Include time.h header before using time_t
+
+Since include/net/ppp_defs.h is used in both kernelspace and userland
+it is hard to include <time.h> there.
+This commit fixes the problems in userspace code individually and leaves
+ppp_defs.h as-is.
+
+Signed-off-by: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Signed-off-by: Paul Mackerras <paulus@ozlabs.org>
+---
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 1 +
+ pppd/sha1.c                             | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+index 8b2e946..f19c6d8 100644
+--- a/pppd/plugins/rp-pppoe/pppoe-discovery.c
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -15,6 +15,7 @@
+ #include <unistd.h>
+ #include <errno.h>
+ #include <string.h>
++#include <time.h>
+ 
+ #include "pppoe.h"
+ 
+diff --git a/pppd/sha1.c b/pppd/sha1.c
+index f4f975c..4e51cee 100644
+--- a/pppd/sha1.c
++++ b/pppd/sha1.c
+@@ -17,6 +17,7 @@
+ /* #define SHA1HANDSOFF * Copies data before messing with it. */
+ 
+ #include <string.h>
++#include <time.h>
+ #include <netinet/in.h>	/* htonl() */
+ #include <net/ppp_defs.h>
+ #include "sha1.h"
+-- 
+2.20.1
+

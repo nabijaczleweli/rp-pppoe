@@ -1,0 +1,78 @@
+From 8e77984ac5d7acbe68b2b2f590abd17564c9730d Mon Sep 17 00:00:00 2001
+From: Alexis Cellier <alexis.cellier@openwide.fr>
+Date: Wed, 11 Jul 2018 16:16:42 +0200
+Subject: [PATCH] rp-pppoe plugin: Add options to tune discovery timeout and
+ number of attempts
+
+Add new options pppoe-padi-timeout and pppoe-padi-attempts.
+
+These modifications are the similar to the ones done on
+pppoe-discovery in commit 70a8ad3d ("pppoe-discovery: add options to
+tune discovery timeout and attempts", 2017-12-07).
+
+Signed-off-by: Alexis Cellier <alexis.cellier@smile.fr>
+Signed-off-by: Paul Mackerras <paulus@ozlabs.org>
+---
+ pppd/plugins/rp-pppoe/discovery.c | 4 ++--
+ pppd/plugins/rp-pppoe/plugin.c    | 9 ++++++++-
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/discovery.c b/pppd/plugins/rp-pppoe/discovery.c
+index 16a59f7..2aebcd1 100644
+--- a/pppd/plugins/rp-pppoe/discovery.c
++++ b/pppd/plugins/rp-pppoe/discovery.c
+@@ -622,7 +622,7 @@ discovery(PPPoEConnection *conn)
+ 
+     do {
+ 	padiAttempts++;
+-	if (padiAttempts > MAX_PADI_ATTEMPTS) {
++	if (padiAttempts > conn->discoveryAttempts) {
+ 	    warn("Timeout waiting for PADO packets");
+ 	    close(conn->discoverySocket);
+ 	    conn->discoverySocket = -1;
+@@ -638,7 +638,7 @@ discovery(PPPoEConnection *conn)
+     timeout = conn->discoveryTimeout;
+     do {
+ 	padrAttempts++;
+-	if (padrAttempts > MAX_PADI_ATTEMPTS) {
++	if (padrAttempts > conn->discoveryAttempts) {
+ 	    warn("Timeout waiting for PADS packets");
+ 	    close(conn->discoverySocket);
+ 	    conn->discoverySocket = -1;
+diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
+index 9ceb66d..9e838d3 100644
+--- a/pppd/plugins/rp-pppoe/plugin.c
++++ b/pppd/plugins/rp-pppoe/plugin.c
+@@ -69,6 +69,8 @@ static int printACNames = 0;
+ static char *pppoe_reqd_mac = NULL;
+ unsigned char pppoe_reqd_mac_addr[6];
+ static char *host_uniq;
++static int pppoe_padi_timeout = PADI_TIMEOUT;
++static int pppoe_padi_attempts = MAX_PADI_ATTEMPTS;
+ 
+ static int PPPoEDevnameHook(char *cmd, char **argv, int doit);
+ static option_t Options[] = {
+@@ -88,6 +90,10 @@ static option_t Options[] = {
+       "Only connect to specified MAC address" },
+     { "host-uniq", o_string, &host_uniq,
+       "Set the Host-Uniq to the supplied hex string" },
++    { "pppoe-padi-timeout", o_int, &pppoe_padi_timeout,
++      "Initial timeout for discovery packets in seconds" },
++    { "pppoe-padi-attempts", o_int, &pppoe_padi_attempts,
++      "Number of discovery attempts" },
+     { NULL }
+ };
+ int (*OldDevnameHook)(char *cmd, char **argv, int doit) = NULL;
+@@ -114,7 +120,8 @@ PPPOEInitDevice(void)
+     conn->discoverySocket = -1;
+     conn->sessionSocket = -1;
+     conn->printACNames = printACNames;
+-    conn->discoveryTimeout = PADI_TIMEOUT;
++    conn->discoveryTimeout = pppoe_padi_timeout;
++    conn->discoveryAttempts = pppoe_padi_attempts;
+     return 1;
+ }
+ 
+-- 
+2.20.1
+

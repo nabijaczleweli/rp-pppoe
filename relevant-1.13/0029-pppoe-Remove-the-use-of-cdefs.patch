@@ -1,0 +1,50 @@
+From 3202f8916306cc42bcabbae48ae45d0e18ab0826 Mon Sep 17 00:00:00 2001
+From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Date: Mon, 30 Sep 2019 14:45:08 +0200
+Subject: [PATCH] pppoe: Remove the use of cdefs
+
+sys/cdefs.h contains the __P() macro.
+The header doesn't exist in my musl toolchain,
+the __P() macro has been obsoleted even by glibc,
+and it's never used in the code.
+This commit removes the need for this remainder.
+
+Signed-off-by: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Signed-off-by: Paul Mackerras <paulus@ozlabs.org>
+---
+ pppd/plugins/rp-pppoe/config.h | 3 ---
+ pppd/plugins/rp-pppoe/pppoe.h  | 4 ----
+ 2 files changed, 7 deletions(-)
+
+diff --git a/pppd/plugins/rp-pppoe/config.h b/pppd/plugins/rp-pppoe/config.h
+index 5703087..a708859 100644
+--- a/pppd/plugins/rp-pppoe/config.h
++++ b/pppd/plugins/rp-pppoe/config.h
+@@ -101,9 +101,6 @@
+ /* Define if you have the <netpacket/packet.h> header file.  */
+ #define HAVE_NETPACKET_PACKET_H 1
+ 
+-/* Define if you have the <sys/cdefs.h> header file.  */
+-#define HAVE_SYS_CDEFS_H 1
+-
+ /* Define if you have the <sys/dlpi.h> header file.  */
+ /* #undef HAVE_SYS_DLPI_H */
+ 
+diff --git a/pppd/plugins/rp-pppoe/pppoe.h b/pppd/plugins/rp-pppoe/pppoe.h
+index b4b309f..a4e7d5c 100644
+--- a/pppd/plugins/rp-pppoe/pppoe.h
++++ b/pppd/plugins/rp-pppoe/pppoe.h
+@@ -39,10 +39,6 @@
+ #error Unknown method for accessing raw Ethernet frames
+ #endif
+ 
+-#ifdef HAVE_SYS_CDEFS_H
+-#include <sys/cdefs.h>
+-#endif
+-
+ #ifdef HAVE_SYS_SOCKET_H
+ #include <sys/socket.h>
+ #endif
+-- 
+2.20.1
+

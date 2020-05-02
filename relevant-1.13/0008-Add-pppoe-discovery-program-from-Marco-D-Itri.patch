@@ -1,0 +1,185 @@
+From 4ed9d22c884b6266f30d308c108f214a0815b812 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@samba.org>
+Date: Sat, 13 Nov 2004 12:14:59 +0000
+Subject: [PATCH] Add pppoe-discovery program, from Marco D'Itri
+
+---
+ pppd/plugins/rp-pppoe/Makefile.linux    |  13 ++-
+ pppd/plugins/rp-pppoe/pppoe-discovery.c | 124 ++++++++++++++++++++++++
+ 2 files changed, 135 insertions(+), 2 deletions(-)
+ create mode 100644 pppd/plugins/rp-pppoe/pppoe-discovery.c
+
+diff --git a/pppd/plugins/rp-pppoe/Makefile.linux b/pppd/plugins/rp-pppoe/Makefile.linux
+index c20af57..5c8ecaf 100644
+--- a/pppd/plugins/rp-pppoe/Makefile.linux
++++ b/pppd/plugins/rp-pppoe/Makefile.linux
+@@ -10,10 +10,11 @@
+ # This program may be distributed according to the terms of the GNU
+ # General Public License, version 2 or (at your option) any later version.
+ #
+-# $Id: Makefile.linux,v 1.4 2004/10/31 22:09:03 paulus Exp $
++# $Id: Makefile.linux,v 1.5 2004/11/13 12:14:59 paulus Exp $
+ #***********************************************************************
+ 
+ DESTDIR = @DESTDIR@
++BINDIR = $(DESTDIR)/sbin
+ LIBDIR = $(DESTDIR)/lib/pppd/$(VERSION)
+ 
+ INSTALL	= install
+@@ -23,7 +24,13 @@ VERSION=3.3
+ 
+ COPTS=-O2 -g
+ CFLAGS=$(COPTS) -I../../../include/linux
+-all: rp-pppoe.so
++all: rp-pppoe.so pppoe-discovery
++
++pppoe-discovery: libplugin.a pppoe-discovery.o
++	$(CC) -o pppoe-discovery pppoe-discovery.o libplugin.a
++
++pppoe-discovery.o: pppoe-discovery.c
++	$(CC) $(CFLAGS) '-DVERSION="$(VERSION)"' -c -o pppoe-discovery.o pppoe-discovery.c
+ 
+ rp-pppoe.so: libplugin.a plugin.o
+ 	$(CC) -o rp-pppoe.so -shared plugin.o libplugin.a
+@@ -31,6 +38,8 @@ rp-pppoe.so: libplugin.a plugin.o
+ install: all
+ 	$(INSTALL) -d -m 755 $(LIBDIR)
+ 	$(INSTALL) -s -c -m 4550 rp-pppoe.so $(LIBDIR)
++	$(INSTALL) -d -m 755 $(BINDIR)
++	$(INSTALL) -s -c -m 555 pppoe-discovery $(BINDIR)
+ 
+ clean:
+ 	rm -f *.o *.so
+diff --git a/pppd/plugins/rp-pppoe/pppoe-discovery.c b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+new file mode 100644
+index 0000000..bfb8706
+--- /dev/null
++++ b/pppd/plugins/rp-pppoe/pppoe-discovery.c
+@@ -0,0 +1,124 @@
++/*
++ * Perform PPPoE discovery
++ *
++ * Copyright (C) 2000-2001 by Roaring Penguin Software Inc.
++ * Copyright (C) 2004 Marco d'Itri <md@linux.it>
++ *
++ * This program may be distributed according to the terms of the GNU
++ * General Public License, version 2 or (at your option) any later version.
++ *
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <errno.h>
++#include <string.h>
++
++#include "pppoe.h"
++
++char *xstrdup(const char *s);
++void usage(void);
++
++void die(int status)
++{
++	exit(status);
++}
++
++int main(int argc, char *argv[])
++{
++    int opt;
++    PPPoEConnection *conn;
++
++    conn = malloc(sizeof(PPPoEConnection));
++    if (!conn)
++	fatalSys("malloc");
++
++    memset(conn, 0, sizeof(PPPoEConnection));
++
++    while ((opt = getopt(argc, argv, "I:D:VUAS:C:h")) > 0) {
++	switch(opt) {
++	case 'S':
++	    conn->serviceName = xstrdup(optarg);
++	    break;
++	case 'C':
++	    conn->acName = xstrdup(optarg);
++	    break;
++	case 'U':
++	    conn->useHostUniq = 1;
++	    break;
++	case 'D':
++	    conn->debugFile = fopen(optarg, "w");
++	    if (!conn->debugFile) {
++		fprintf(stderr, "Could not open %s: %s\n",
++			optarg, strerror(errno));
++		exit(1);
++	    }
++	    fprintf(conn->debugFile, "pppoe-discovery %s\n", VERSION);
++	    break;
++	case 'I':
++	    conn->ifName = xstrdup(optarg);
++	    break;
++	case 'A':
++	    /* this is the default */
++	    break;
++	case 'V':
++	case 'h':
++	    usage();
++	    exit(0);
++	default:
++	    usage();
++	    exit(1);
++	}
++    }
++
++    /* default interface name */
++    if (!conn->ifName)
++	conn->ifName = strdup("eth0");
++
++    conn->discoverySocket = -1;
++    conn->sessionSocket = -1;
++    conn->printACNames = 1;
++
++    discovery(conn);
++    exit(0);
++}
++
++void rp_fatal(char const *str)
++{
++    char buf[1024];
++
++    printErr(str);
++    sprintf(buf, "pppoe-discovery: %.256s", str);
++    exit(1);
++}
++
++void fatalSys(char const *str)
++{
++    char buf[1024];
++    int i = errno;
++
++    sprintf(buf, "%.256s: %.256s", str, strerror(i));
++    printErr(buf);
++    sprintf(buf, "pppoe-discovery: %.256s: %.256s", str, strerror(i));
++    exit(1);
++}
++
++void sysErr(char const *str)
++{
++    rp_fatal(str);
++}
++
++char *xstrdup(const char *s)
++{
++    register char *ret = strdup(s);
++    if (!ret)
++	sysErr("strdup");
++    return ret;
++}
++
++void usage(void)
++{
++    fprintf(stderr, "Usage: pppoe-discovery [options]\n");
++    fprintf(stderr, "\nVersion " VERSION "\n");
++}
+-- 
+2.20.1
+

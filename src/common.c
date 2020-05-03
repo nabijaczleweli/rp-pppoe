@@ -82,10 +82,8 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
     curTag = packet->payload;
     while(curTag - packet->payload < len) {
 	/* Alignment is not guaranteed, so do this by hand... */
-	tagType = (((UINT16_t) curTag[0]) << 8) +
-	    (UINT16_t) curTag[1];
-	tagLen = (((UINT16_t) curTag[2]) << 8) +
-	    (UINT16_t) curTag[3];
+	tagType = (curTag[0] << 8) + curTag[1];
+	tagLen = (curTag[2] << 8) + curTag[3];
 	if (tagType == TAG_END_OF_LIST) {
 	    return 0;
 	}

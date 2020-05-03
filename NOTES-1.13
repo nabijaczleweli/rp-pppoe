@@ -12,16 +12,21 @@ Comments after ^ are after reading more and dropping/SHA after applying.
 
 11:   git format-patch --start-number 3 5d490c4106f4a34864c980b925e183cf3bf575e2~1..5d490c4106f4a34864c980b925e183cf3bf575e2
 ^ common.c has the protocol discovery hunk already, I don't see a good reason to include the PPPOE_STANDALONE ifdef
-  discovery.c's resillience hunks applied cleanly, plugin.c already included its; af2ef279c5b6129a6e53ddb5a544aec071ccbc6d
+  discovery.c's resillience hunks applied cleanly, plugin.c already included its; 911321e4fb1cd88fc21db15161b1a9708f43c43f
   TODO: plugin.c's PPPoEDevnameHook() hunk, maybe?
 
 12:   git format-patch --start-number 4 e9925858258e464095e7ee9d21a1facf789e9b38~1..e9925858258e464095e7ee9d21a1facf789e9b38
-^ OldDevnameHook removal: a2c8c225b66ad7836a3ab5da0e989fef8c19a02d
+^ OldDevnameHook removal: 9da4b246272f5d228689977a4f5a2f61f6ae9774
   Bridge interfaces were already supported
 
 15:   git format-patch --start-number 5 6e6bb3246106e680463c106d1ee6b773fc4f9c5a~1..6e6bb3246106e680463c106d1ee6b773fc4f9c5a
+^ Removing conn->killSession only makes sense in the context of pppd which doesn't build the pppoe binary.
+  printf("-----------") has already been removed, die() doesn't exist so exit() sounds reasonable
+  The FD leaks were caused by the resillience hunks in patch 0003, squashed: 911321e4fb1cd88fc21db15161b1a9708f43c43f
+  Only the /* don't send PADT?? */ hunk is left. I remember it gets removed later. Let's wait for that
 
-16:   git format-patch --start-number 6 4ed9d22c884b6266f30d308c108f214a0815b812~1..4ed9d22c884b6266f30d308c108f214a0815b812
+16: d git format-patch --start-number 6 4ed9d22c884b6266f30d308c108f214a0815b812~1..4ed9d22c884b6266f30d308c108f214a0815b812
+^ TODO: not sure if Dianne wants pppoe-discovery in her tree
 
 17: - git format-patch --start-number 7 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be~1..322e51c6ca0f3c5f897d3264cd4d3c1cc74842be -- PLUGIN_PATH not respected?
 

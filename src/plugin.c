@@ -217,6 +217,8 @@ PPPOEConnectDevice(void)
         discovery(conn);
 	if (conn->discoveryState != STATE_SESSION) {
 	    error("Unable to complete PPPoE Discovery");
+	    close(conn->discoverySocket);
+	    conn->discoverySocket = -1;
 	    return -1;
 	}
     }

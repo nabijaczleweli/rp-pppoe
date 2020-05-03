@@ -764,12 +764,12 @@ discovery(PPPoEConnection *conn)
     do {
 	padiAttempts++;
 	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+	    printErr("Timeout waiting for PADO packets");
 	    if (persist) {
 		padiAttempts = 0;
 		timeout = conn->discoveryTimeout;
-		printErr("Timeout waiting for PADO packets");
 	    } else {
-		rp_fatal("Timeout waiting for PADO packets");
+		return;
 	    }
 	}
 	sendPADI(conn);
@@ -797,14 +797,14 @@ discovery(PPPoEConnection *conn)
     do {
 	padrAttempts++;
 	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+	    printErr("Timeout waiting for PADS packets");
 	    if (persist) {
 		padrAttempts = 0;
 		timeout = conn->discoveryTimeout;
-		printErr("Timeout waiting for PADS packets");
 		/* Go back to sending PADI again */
 		goto SEND_PADI;
 	    } else {
-		rp_fatal("Timeout waiting for PADS packets");
+		return;
 	    }
 	}
 	sendPADR(conn);

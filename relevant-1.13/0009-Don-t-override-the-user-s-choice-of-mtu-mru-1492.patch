@@ -12,7 +12,19 @@ diff --git a/pppd/plugins/rp-pppoe/plugin.c b/pppd/plugins/rp-pppoe/plugin.c
 index 1ea46a6..1e9bd83 100644
 --- a/pppd/plugins/rp-pppoe/plugin.c
 +++ b/pppd/plugins/rp-pppoe/plugin.c
-@@ -22,7 +22,7 @@
+@@ -10,31 +10,31 @@
+ * Much code and many ideas derived from pppoe plugin by Michal
+ * Ostrowski and Jamal Hadi Salim, which carries this copyright:
+ *
+ * Copyright 2000 Michal Ostrowski <mostrows@styx.uwaterloo.ca>,
+ *                Jamal Hadi Salim <hadi@cyberus.ca>
+ * Borrows heavily from the PPPoATM plugin by Mitchell Blank Jr.,
+ * which is based in part on work from Jens Axboe and Paul Mackerras.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  ***********************************************************************/
  
  static char const RCSID[] =
@@ -21,7 +33,31 @@ index 1ea46a6..1e9bd83 100644
  
  #define _GNU_SOURCE 1
  #include "pppoe.h"
-@@ -187,8 +187,10 @@ PPPOERecvConfig(int mru,
+ 
+ #include "pppd/pppd.h"
+ #include "pppd/fsm.h"
+ #include "pppd/lcp.h"
+ #include "pppd/ipcp.h"
+ #include "pppd/ccp.h"
+ #include "pppd/pathnames.h"
+ 
+ #include <linux/types.h>
+ #include <syslog.h>
+ #include <sys/ioctl.h>
+ #include <sys/types.h>
+@@ -175,32 +175,34 @@ PPPOEConnectDevice(void)
+     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+ 		sizeof(struct sockaddr_pppox)) < 0) {
+ 	fatal("Failed to connect PPPoE socket: %d %m", errno);
+ 	return -1;
+     }
+ 
+     return conn->sessionSocket;
+ }
+ 
+ static void
+ PPPOERecvConfig(int mru,
+ 		u_int32_t asyncmap,
  		int pcomp,
  		int accomp)
  {
@@ -32,7 +68,31 @@ index 1ea46a6..1e9bd83 100644
  }
  
  /**********************************************************************
-@@ -294,27 +296,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+  * %FUNCTION: PPPOEDisconnectDevice
+  * %ARGUMENTS:
+  * None
+  * %RETURNS:
+  * Nothing
+  * %DESCRIPTION:
+  * Disconnects PPPoE device
+  ***********************************************************************/
+ static void
+ PPPOEDisconnectDevice(void)
+ {
+     struct sockaddr_pppox sp;
+@@ -282,51 +284,30 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 		    r=0;
+ 		}
+ 	    }
+ 	}
+     }
+ 
+     /* Close socket */
+     close(fd);
+     if (r) {
+ 	strncpy(devnam, cmd, sizeof(devnam));
+ 	if (the_channel != &pppoe_channel) {
+ 
  	    the_channel = &pppoe_channel;
  	    modem = 0;
  
@@ -60,7 +120,31 @@ index 1ea46a6..1e9bd83 100644
  	    PPPOEInitDevice();
  	}
  	return 1;
-@@ -399,11 +380,36 @@ sysErr(char const *str)
+     }
+ 
+     return r;
+ }
+ 
+ /**********************************************************************
+  * %FUNCTION: plugin_init
+  * %ARGUMENTS:
+  * None
+  * %RETURNS:
+  * Nothing
+  * %DESCRIPTION:
+@@ -387,29 +368,54 @@ rp_fatal(char const *str)
+ /**********************************************************************
+ *%FUNCTION: sysErr
+ *%ARGUMENTS:
+ * str -- error message
+ *%RETURNS:
+ * Nothing
+ *%DESCRIPTION:
+ * Prints a message plus the errno value to syslog.
+ ***********************************************************************/
+ void
+ sysErr(char const *str)
+ {
      rp_fatal(str);
  }
  
@@ -98,6 +182,12 @@ index 1ea46a6..1e9bd83 100644
      connect: &PPPOEConnectDevice,
      disconnect: &PPPOEDisconnectDevice,
      establish_ppp: &generic_establish_ppp,
+     disestablish_ppp: &generic_disestablish_ppp,
+     send_config: NULL,
+     recv_config: &PPPOERecvConfig,
+     close: NULL,
+     cleanup: NULL
+ };
 -- 
 2.20.1
 

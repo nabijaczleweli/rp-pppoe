@@ -2,8 +2,7 @@ Groups are a single multi-commit unit.
 ?s are of questionable relevancy, may be removed entirely.
 d is for pppoe-discovery (does Dianne want it in her tree at all?).
 p is for packet printer
-- is additional comments at EOL.
-Comments after ^ are after reading more and dropping/SHA after applying.
+Comments after ^ are after reading more and dropping/SHA after applying (see branch relevant-1.13).
 
 8:    git format-patch --start-number 1 9c0f3f00059b45e62849fe5a7a3164bbe6eca00e~1..9c0f3f00059b45e62849fe5a7a3164bbe6eca00e
 9:    git format-patch --start-number 2 e5b7cafa28aeba66499fa26b286192529e5fde15~1..e5b7cafa28aeba66499fa26b286192529e5fde15
@@ -12,65 +11,85 @@ Comments after ^ are after reading more and dropping/SHA after applying.
 
 11:   git format-patch --start-number 3 5d490c4106f4a34864c980b925e183cf3bf575e2~1..5d490c4106f4a34864c980b925e183cf3bf575e2
 ^ common.c has the protocol discovery hunk already, I don't see a good reason to include the PPPOE_STANDALONE ifdef
-  discovery.c's resillience hunks applied cleanly, plugin.c already included its; 911321e4fb1cd88fc21db15161b1a9708f43c43f
+  discovery.c's resillience hunks applied cleanly, plugin.c already included its; e5fe76f88bcba127e58b24f6d7886615d279b04d
   TODO: plugin.c's PPPoEDevnameHook() hunk, maybe?
 
 12:   git format-patch --start-number 4 e9925858258e464095e7ee9d21a1facf789e9b38~1..e9925858258e464095e7ee9d21a1facf789e9b38
-^ OldDevnameHook removal: 9da4b246272f5d228689977a4f5a2f61f6ae9774
+^ OldDevnameHook removal: c3c2321b820162fa3683b63fe667ad155151c49d
   Bridge interfaces were already supported
 
 15:   git format-patch --start-number 5 6e6bb3246106e680463c106d1ee6b773fc4f9c5a~1..6e6bb3246106e680463c106d1ee6b773fc4f9c5a
 ^ Removing conn->killSession only makes sense in the context of pppd which doesn't build the pppoe binary.
-  printf("-----------") has already been removed, die() doesn't exist so exit() sounds reasonable
-  The FD leaks were caused by the resillience hunks in patch 0003, squashed: 911321e4fb1cd88fc21db15161b1a9708f43c43f
-  Only the /* don't send PADT?? */ hunk is left. I remember it gets removed later. Let's wait for that
+  printf("-----------") has already been removed, die() doesn't e xist so exit() sounds reasonable
+  The FD leaks were caused by the resillience hunks in patch 0003, squashed: e5fe76f88bcba127e58b24f6d7886615d279b04d
+  /* don't send PADT?? */ hunk squashed/overriden with 0016
 
 16: d git format-patch --start-number 6 4ed9d22c884b6266f30d308c108f214a0815b812~1..4ed9d22c884b6266f30d308c108f214a0815b812
 ^ TODO: not sure if Dianne wants pppoe-discovery in her tree
 
-17: - git format-patch --start-number 7 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be~1..322e51c6ca0f3c5f897d3264cd4d3c1cc74842be -- PLUGIN_PATH not respected?
+17:   git format-patch --start-number 7 322e51c6ca0f3c5f897d3264cd4d3c1cc74842be~1..322e51c6ca0f3c5f897d3264cd4d3c1cc74842be
+^ TODO: decide if pppd's new "/usr/lib/pppd/<VERSION>" location should be used;
+  also, use "/usr/lib/pppd/" in general, since it's a lib and not a config
 
 19:   git format-patch --start-number 8 71373d6f2d74ebb13d6697cb1cc1112033a71fc9~1..71373d6f2d74ebb13d6697cb1cc1112033a71fc9
+20:   git format-patch --start-number 9 43c9218605e0d7302cc614063de8e7078acabe46~1..43c9218605e0d7302cc614063de8e7078acabe46 -U15
+^ 0008 dropped: hard-codes wanted MRU and allowed MTU to 1492
+  0009: PPPoEDevnameHook() has the config, but doesn't force MTU/MRU, pppoe_check_options() already exists
+  TODO: decide what to do about 0009's /* broken protocol, but no point harrassing the users I guess... */
 
-20: ? git format-patch --start-number 9 43c9218605e0d7302cc614063de8e7078acabe46~1..43c9218605e0d7302cc614063de8e7078acabe46
-
-21:   git format-patch --start-number 10 ccc4c4604dd9e7316fe734b41b7327aa5906de3e~1..ccc4c4604dd9e7316fe734b41b7327aa5906de3e
+21:   git format-patch --start-number 10 ccc4c4604dd9e7316fe734b41b7327aa5906de3e~1..ccc4c4604dd9e7316fe734b41b7327aa5906de3e -U10
+^ feature: anyname
+  Only-init-if-doit is already present. Picked only-error-if-doit hunk: b04e54559474e59b5ceb6cfabc64ae394d556ddc
 
 23: dpgit format-patch --start-number 11 427e3d851c86e35655e14f1dfa9c831a8fab94d9~1..427e3d851c86e35655e14f1dfa9c831a8fab94d9
+^ one 8-bit bitfield instead of 2 4-bit ones: 317ab903c22257978120df77cdd054a33fe4b614
+  typecast pruning in common.c#parsePacket(): f4483fde68dd06e98224fc2fe905c44daf1d8c42
+  CODE_PADM, CODE_PADN: already present
+  marking discovery.c functions static: already present
+  feature: packet printer
+  DLPI and BPF???
+  removing exit()/die(): TODO; involves splitting discovery; I don't understand the code well enough
+  removing strDup(): 302a25dd297ce259f803951dea58d9b37b35712b
 
-28: dpgit format-patch --start-number 12 fd1dcdf758418f040da3ed801ab001b5e46854e7~1..fd1dcdf758418f040da3ed801ab001b5e46854e7 -- interacts with dianne's code somehow?
+28: dpgit format-patch --start-number 12 fd1dcdf758418f040da3ed801ab001b5e46854e7~1..fd1dcdf758418f040da3ed801ab001b5e46854e7
+^ bulk of the code already in, mostly walled off with #ifdef PLUGIN,
+  what's left is a port of one check from common to pppoe-discovery and TAG_PPP_MAX_PAYLOAD in printpkt
 
 29:  pgit format-patch --start-number 13 f5dda0cfc220c4b52e26144096d729e27b30f0f7~1..f5dda0cfc220c4b52e26144096d729e27b30f0f7
+^ printpkt fix to be more in line with everything else
 
 30:   git format-patch --start-number 14 1817d83e51a411044e730ba89ebdb0480e1c8cd4~1..1817d83e51a411044e730ba89ebdb0480e1c8cd4
+^ mainly an import from rp-pppoe 3.10
+  extraction to time_left(): 7c724f134f35ada15425f56e4169dc0f65d6638a
 
 31:   git format-patch --start-number 15 219aac3b53d0827549377f1bfe22853ee52d4405~1..219aac3b53d0827549377f1bfe22853ee52d4405
+^ applied straightforwardly: 5a8bab54be12e07636099e436660f3f331739d94
 
-32: ? git format-patch --start-number 16 cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb~1..cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb
+32:   git format-patch --start-number 16 cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb~1..cd2c14f998c57bbe6a01dc5854f2763c0d7f31fb
+^ applied straightforwardly: 9b1636832479f2221d5309d957fbd4cfac462a70
 
 34: d git format-patch --start-number 17 b7b97dea6eb042fae0dfaca39cbb190411e5fd31~1..b7b97dea6eb042fae0dfaca39cbb190411e5fd31
+^ TODO: pppoe-discovery?
 
-35: ? git format-patch --start-number 18 50a2997b256e0e0ef7a46fae133f56f60fce539c~1..50a2997b256e0e0ef7a46fae133f56f60fce539c
+37: d git format-patch --start-number 18 ac682de4ec32d4cc8859b31366023e28012e23e6~1..ac682de4ec32d4cc8859b31366023e28012e23e6
 
-37: d git format-patch --start-number 19 ac682de4ec32d4cc8859b31366023e28012e23e6~1..ac682de4ec32d4cc8859b31366023e28012e23e6
+38: d git format-patch --start-number 19 bb65ff8830596e22d5f6c4c66274ddd726545c85~1..bb65ff8830596e22d5f6c4c66274ddd726545c85
 
-38: d git format-patch --start-number 20 bb65ff8830596e22d5f6c4c66274ddd726545c85~1..bb65ff8830596e22d5f6c4c66274ddd726545c85
+39: d git format-patch --start-number 20 8e62a6d886edeecc52391db3216c026db6c0e7d9~1..8e62a6d886edeecc52391db3216c026db6c0e7d9
 
-39: d git format-patch --start-number 21 8e62a6d886edeecc52391db3216c026db6c0e7d9~1..8e62a6d886edeecc52391db3216c026db6c0e7d9
+40: d git format-patch --start-number 21 70a8ad3dbd8af3b52d624550fc3343d1849c3f76~1..70a8ad3dbd8af3b52d624550fc3343d1849c3f76
 
-40: d git format-patch --start-number 22 70a8ad3dbd8af3b52d624550fc3343d1849c3f76~1..70a8ad3dbd8af3b52d624550fc3343d1849c3f76
+43:   git format-patch --start-number 22 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
+44:   git format-patch --start-number 23 44012ae879e809ad1f75e6c69712619cefaa4add~1..44012ae879e809ad1f75e6c69712619cefaa4add
 
-43:   git format-patch --start-number 23 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
-44:   git format-patch --start-number 24 44012ae879e809ad1f75e6c69712619cefaa4add~1..44012ae879e809ad1f75e6c69712619cefaa4add
+45: d git format-patch --start-number 24 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
 
-45: d git format-patch --start-number 25 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
+46:   git format-patch --start-number 25 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
 
-46:   git format-patch --start-number 26 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
+47:   git format-patch --start-number 26 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
 
-47:   git format-patch --start-number 27 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
+48: d git format-patch --start-number 27 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
 
-48: d git format-patch --start-number 28 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
+49:   git format-patch --start-number 28 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
 
-49:   git format-patch --start-number 29 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
-
-50:   git format-patch --start-number 30 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9
+50:   git format-patch --start-number 29 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9

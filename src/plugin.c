@@ -95,7 +95,7 @@ static option_t Options[] = {
       "Only connect to specified MAC address" },
     { NULL }
 };
-int (*OldDevnameHook)(char *cmd, char **argv, int doit) = NULL;
+
 static PPPoEConnection *conn = NULL;
 
 /**********************************************************************
@@ -374,7 +374,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
        Patch based on suggestion from Mike Ireton.
     */
     if (seen_devnam[seen_idx]) {
-	if (OldDevnameHook) return OldDevnameHook(cmd, argv, doit);
 	return 0;
     }
 
@@ -386,7 +385,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
     } else {
 	if (strncmp(cmd, "eth", 3) &&
 	    strncmp(cmd, "br", 2)) {
-	    if (OldDevnameHook) return OldDevnameHook(cmd, argv, doit);
 	    return 0;
 	}
     }
@@ -449,7 +447,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
 	return 1;
     }
 
-    if (OldDevnameHook) r = OldDevnameHook(cmd, argv, doit);
     return r;
 }
 

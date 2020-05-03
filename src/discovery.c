@@ -56,6 +56,34 @@ struct HostUniqInfo {
     int forMe;
 };
 
+/* Calculate time remaining until *expire_at into *tv, returns 0 if now >= *expire_at */
+static int
+time_left(struct timeval *tv, struct timeval *expire_at)
+{
+    struct timeval now;
+
+    if (gettimeofday(&now, NULL) < 0) {
+	fatalSys("gettimeofday (time_left)");
+    }
+    tv->tv_sec = expire_at->tv_sec - now.tv_sec;
+    tv->tv_usec = expire_at->tv_usec - now.tv_usec;
+    if (tv->tv_usec < 0) {
+	tv->tv_usec += 1000000;
+	if (tv->tv_sec) {
+	    tv->tv_sec--;
+	} else {
+	    /* Timed out */
+	    return 0;
+	}
+    }
+    if (tv->tv_sec <= 0 && tv->tv_usec <= 0) {
+	/* Timed out */
+	return 0;
+    }
+
+    return 1;
+}
+
 /**********************************************************************
 *%FUNCTION: parseForHostUniq
 *%ARGUMENTS:
@@ -223,8 +251,8 @@ parsePADOTags(UINT16_t type, UINT16_t len, unsigned char *data,
 	    mru = ntohs(mru);
 	    if (mru >= ETH_PPPOE_MTU) {
 		if (lcp_allowoptions[0].mru > mru) lcp_allowoptions[0].mru = mru;
-               if (lcp_wantoptions[0].mru > mru) lcp_wantoptions[0].mru = mru;
-               conn->seenMaxPayload = 1;
+		if (lcp_wantoptions[0].mru > mru) lcp_wantoptions[0].mru = mru;
+		conn->seenMaxPayload = 1;
 	    }
 	}
 	break;
@@ -274,8 +302,8 @@ parsePADSTags(UINT16_t type, UINT16_t len, unsigned char *data,
 	    mru = ntohs(mru);
 	    if (mru >= ETH_PPPOE_MTU) {
 		if (lcp_allowoptions[0].mru > mru) lcp_allowoptions[0].mru = mru;
-               if (lcp_wantoptions[0].mru > mru) lcp_wantoptions[0].mru = mru;
-               conn->seenMaxPayload = 1;
+		if (lcp_wantoptions[0].mru > mru) lcp_wantoptions[0].mru = mru;
+		conn->seenMaxPayload = 1;
 	    }
 	}
 	break;
@@ -390,7 +418,6 @@ waitForPADO(PPPoEConnection *conn, int timeout)
     int r;
     struct timeval tv;
     struct timeval expire_at;
-    struct timeval now;
 
     PPPoEPacket packet;
     int len;
@@ -408,21 +435,7 @@ waitForPADO(PPPoEConnection *conn, int timeout)
 
     do {
 	if (BPF_BUFFER_IS_EMPTY) {
-	    if (gettimeofday(&now, NULL) < 0) {
-		fatalSys("gettimeofday (waitForPADO)");
-	    }
-	    tv.tv_sec = expire_at.tv_sec - now.tv_sec;
-	    tv.tv_usec = expire_at.tv_usec - now.tv_usec;
-	    if (tv.tv_usec < 0) {
-		tv.tv_usec += 1000000;
-		if (tv.tv_sec) {
-		    tv.tv_sec--;
-		} else {
-		    /* Timed out */
-		    return;
-		}
-	    }
-	    if (tv.tv_sec <= 0 && tv.tv_usec <= 0) {
+	    if(!time_left(&tv, &expire_at)) {
 		/* Timed out */
 		return;
 	    }
@@ -633,7 +646,6 @@ waitForPADS(PPPoEConnection *conn, int timeout)
     int r;
     struct timeval tv;
     struct timeval expire_at;
-    struct timeval now;
 
     PPPoEPacket packet;
     int len;
@@ -645,21 +657,7 @@ waitForPADS(PPPoEConnection *conn, int timeout)
 
     do {
 	if (BPF_BUFFER_IS_EMPTY) {
-	    if (gettimeofday(&now, NULL) < 0) {
-		fatalSys("gettimeofday (waitForPADS)");
-	    }
-	    tv.tv_sec = expire_at.tv_sec - now.tv_sec;
-	    tv.tv_usec = expire_at.tv_usec - now.tv_usec;
-	    if (tv.tv_usec < 0) {
-		tv.tv_usec += 1000000;
-		if (tv.tv_sec) {
-		    tv.tv_sec--;
-		} else {
-		    /* Timed out */
-		    return;
-		}
-	    }
-	    if (tv.tv_sec <= 0 && tv.tv_usec <= 0) {
+	    if(!time_left(&tv, &expire_at)) {
 		/* Timed out */
 		return;
 	    }

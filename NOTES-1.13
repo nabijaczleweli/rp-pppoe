@@ -72,24 +72,31 @@ Comments after ^ are after reading more and dropping/SHA after applying (see bra
 ^ TODO: pppoe-discovery?
 
 37: d git format-patch --start-number 18 ac682de4ec32d4cc8859b31366023e28012e23e6~1..ac682de4ec32d4cc8859b31366023e28012e23e6
+^ TODO: pppoe-discovery?
 
 38: d git format-patch --start-number 19 bb65ff8830596e22d5f6c4c66274ddd726545c85~1..bb65ff8830596e22d5f6c4c66274ddd726545c85
+^ TODO: pppoe-discovery?
 
 39: d git format-patch --start-number 20 8e62a6d886edeecc52391db3216c026db6c0e7d9~1..8e62a6d886edeecc52391db3216c026db6c0e7d9
+^ TODO: pppoe-discovery?
+  also: seems to exist in discovery.c already?
 
 40: d git format-patch --start-number 21 70a8ad3dbd8af3b52d624550fc3343d1849c3f76~1..70a8ad3dbd8af3b52d624550fc3343d1849c3f76
+^ TODO: pppoe-discovery?
+  should this be applied to discovery.c?
 
-43:   git format-patch --start-number 22 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
-44:   git format-patch --start-number 23 44012ae879e809ad1f75e6c69712619cefaa4add~1..44012ae879e809ad1f75e6c69712619cefaa4add
+43: d git format-patch --start-number 22 fcb076c2b24bd8dd73f4be7a9e1712d3a352a376~1..fcb076c2b24bd8dd73f4be7a9e1712d3a352a376
+^ TODO: pppoe-discovery?
+  relevant parts applied straightforwardly: 71aef66bcb061380063904106ba887c4b4a0de9d
 
-45: d git format-patch --start-number 24 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
+45: d git format-patch --start-number 23 c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf~1..c9d9dbfb8459b528ab56bd1cf0c41460801bbfdf
 
-46:   git format-patch --start-number 25 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
+46:   git format-patch --start-number 24 8e77984ac5d7acbe68b2b2f590abd17564c9730d~1..8e77984ac5d7acbe68b2b2f590abd17564c9730d
 
-47:   git format-patch --start-number 26 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
+47:   git format-patch --start-number 25 3202f8916306cc42bcabbae48ae45d0e18ab0826~1..3202f8916306cc42bcabbae48ae45d0e18ab0826
 
-48: d git format-patch --start-number 27 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
+48: d git format-patch --start-number 26 57edb1a0ebf3e25d824b22c75d1d95e0f378f74a~1..57edb1a0ebf3e25d824b22c75d1d95e0f378f74a
 
-49:   git format-patch --start-number 28 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
+49:   git format-patch --start-number 27 3ea9de913739667e2131d67d979ff175ec394e67~1..3ea9de913739667e2131d67d979ff175ec394e67
 
-50:   git format-patch --start-number 29 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9
+50:   git format-patch --start-number 28 ca5e61b3db021dcfd48e36374a80cf2a3b997bb9~1..ca5e61b3db021dcfd48e36374a80cf2a3b997bb9

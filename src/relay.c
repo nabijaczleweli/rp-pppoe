@@ -826,7 +826,7 @@ relayGotDiscoveryPacket(PPPoEInterface const *iface)
 	return;
     }
     /* Ignore unknown code/version */
-    if (packet.ver != 1 || packet.type != 1) {
+    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
 	return;
     }
 
@@ -886,7 +886,7 @@ relayGotSessionPacket(PPPoEInterface const *iface)
     }
 
     /* Ignore unknown code/version */
-    if (packet.ver != 1 || packet.type != 1) {
+    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
 	return;
     }
 
@@ -1491,8 +1491,7 @@ relaySendError(unsigned char code,
     memcpy(packet.ethHdr.h_source, iface->mac, ETH_ALEN);
     memcpy(packet.ethHdr.h_dest, mac, ETH_ALEN);
     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    packet.type = 1;
-    packet.ver = 1;
+    packet.vertype = PPPOE_VER_TYPE(1, 1);
     packet.code = code;
     packet.session = session;
     packet.length = htons(0);

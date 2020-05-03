@@ -219,18 +219,16 @@ extern void dropPrivs(void);
 /* A PPPoE Packet, including Ethernet headers */
 typedef struct PPPoEPacketStruct {
     struct ethhdr ethHdr;	/* Ethernet header */
-#ifdef PACK_BITFIELDS_REVERSED
-    unsigned int type:4;	/* PPPoE Type (must be 1) */
-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
-#else
-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
-    unsigned int type:4;	/* PPPoE Type (must be 1) */
-#endif
+    unsigned int vertype:8;	/* PPPoE Version (high nibble) and Type (low nibble) (must both be 1) */
     unsigned int code:8;	/* PPPoE code */
     unsigned int session:16;	/* PPPoE session */
     unsigned int length:16;	/* Payload length */
     unsigned char payload[ETH_JUMBO_LEN]; /* A bit of room to spare */
 } PPPoEPacket;
+
+#define PPPOE_VER(vt)	((vt) >> 4)
+#define PPPOE_TYPE(vt)	((vt) & 0xf)
+#define PPPOE_VER_TYPE(v, t)	(((v) << 4) | (t))
 
 /* Header size of a PPPoE packet */
 #define PPPOE_OVERHEAD 6  /* type, code, session, length */

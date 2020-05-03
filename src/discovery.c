@@ -314,8 +314,7 @@ sendPADI(PPPoEConnection *conn)
     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
 
     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    packet.ver = 1;
-    packet.type = 1;
+    packet.vertype = PPPOE_VER_TYPE(1, 1);
     packet.code = CODE_PADI;
     packet.session = 0;
 
@@ -550,8 +549,7 @@ sendPADR(PPPoEConnection *conn)
     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
 
     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    packet.ver = 1;
-    packet.type = 1;
+    packet.vertype = PPPOE_VER_TYPE(1, 1);
     packet.code = CODE_PADR;
     packet.session = 0;
 

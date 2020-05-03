@@ -203,7 +203,7 @@ main(int argc, char *argv[])
     while (!SeenPADR) {
 	if (receivePacket(sock, &pkt, &size) < 0) continue;
 	if (ntohs(pkt.length) + HDR_SIZE > size) continue;
-	if (pkt.ver != 1 || pkt.type != 1)       continue;
+	if (PPPOE_VER(pkt.vertype) != 1 || PPPOE_TYPE(pkt.vertype) != 1) continue;
 	if (pkt.code != CODE_PADR)               continue;
 
 	/* Looks promising... parse it */
@@ -218,7 +218,7 @@ main(int argc, char *argv[])
     while (!SeenSess) {
 	if (receivePacket(sock, &pkt, &size) < 0) continue;
 	if (ntohs(pkt.length) + HDR_SIZE > size) continue;
-	if (pkt.ver != 1 || pkt.type != 1)       continue;
+	if (PPPOE_VER(pkt.vertype) != 1 || PPPOE_TYPE(pkt.vertype) != 1) continue;
 	if (pkt.code != CODE_SESS)               continue;
 
 	/* Cool! */

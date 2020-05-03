@@ -131,9 +131,6 @@
 /* Define if you have the N_HDLC line discipline in pty.h */
 #undef HAVE_N_HDLC
 
-/* Define if bitfields are packed in reverse order */
-#undef PACK_BITFIELDS_REVERSED
-
 /* Define to include debugging code */
 #undef DEBUGGING_ENABLED
 

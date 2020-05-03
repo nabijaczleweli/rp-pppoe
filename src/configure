@@ -4650,59 +4650,6 @@ $as_echo "$as_me: WARNING: *** I will keep going, but it may not work." >&2;}
 	;;
 esac
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking packing order of bit fields" >&5
-$as_echo_n "checking packing order of bit fields... " >&6; }
-if test "${rpppoe_cv_pack_bitfields+set}" != set ; then
-if test "$cross_compiling" = yes; then :
-  $ECHO "no defaults for cross-compiling"; exit 0
-else
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-union foo {
-    struct bar {
-	unsigned int ver:4;
-	unsigned int type:4;
-    } bb;
-    unsigned char baz;
-};
-
-int
-main(void)
-{
-    union foo x;
-    x.bb.ver = 1;
-    x.bb.type = 2;
-    if (x.baz == 0x21) {
-	return 1;
-    } else if (x.baz == 0x12) {
-	return 0;
-    } else {
-	return 2;
-    }
-}
-_ACEOF
-if ac_fn_c_try_run "$LINENO"; then :
-  rpppoe_cv_pack_bitfields=normal
-else
-  rpppoe_cv_pack_bitfields=rev
-fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext
-fi
-
-fi
-
-if test "$rpppoe_cv_pack_bitfields" = "rev" ; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: reversed" >&5
-$as_echo "reversed" >&6; }
-	$as_echo "#define PACK_BITFIELDS_REVERSED 1" >>confdefs.h
-
-else
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: normal" >&5
-$as_echo "normal" >&6; }
-fi
-
 # Sigh... got to fix this up for tcl
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
 # Let make expand exec_prefix.

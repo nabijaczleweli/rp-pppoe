@@ -63,12 +63,12 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
     unsigned char *curTag;
     UINT16_t tagType, tagLen;
 
-    if (packet->ver != 1) {
-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
+    if (PPPOE_VER(packet->vertype) != 1) {
+	syslog(LOG_ERR, "Invalid PPPoE version (%d)", PPPOE_VER(packet->vertype));
 	return -1;
     }
-    if (packet->type != 1) {
-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
+    if (PPPOE_TYPE(packet->vertype) != 1) {
+	syslog(LOG_ERR, "Invalid PPPoE type (%d)", PPPOE_TYPE(packet->vertype));
 	return -1;
     }
 
@@ -118,12 +118,12 @@ findTag(PPPoEPacket *packet, UINT16_t type, PPPoETag *tag)
     unsigned char *curTag;
     UINT16_t tagType, tagLen;
 
-    if (packet->ver != 1) {
-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
+    if (PPPOE_VER(packet->vertype) != 1) {
+	syslog(LOG_ERR, "Invalid PPPoE version (%d)", PPPOE_VER(packet->vertype));
 	return NULL;
     }
-    if (packet->type != 1) {
-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
+    if (PPPOE_TYPE(packet->vertype) != 1) {
+	syslog(LOG_ERR, "Invalid PPPoE type (%d)", PPPOE_TYPE(packet->vertype));
 	return NULL;
     }
 
@@ -501,8 +501,7 @@ sendPADT(PPPoEConnection *conn, char const *msg)
     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
 
     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    packet.ver = 1;
-    packet.type = 1;
+    packet.vertype = PPPOE_VER_TYPE(1, 1);
     packet.code = CODE_PADT;
     packet.session = conn->session;
 

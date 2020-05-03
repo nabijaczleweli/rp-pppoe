@@ -13,6 +13,7 @@
 *
 ***********************************************************************/
 
+#define _GNU_SOURCE 1
 #include "pppoe.h"
 
 #ifdef HAVE_SYSLOG_H

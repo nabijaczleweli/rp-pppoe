@@ -55,8 +55,6 @@
 #include <net/if_arp.h>
 #include <linux/ppp_defs.h>
 #include <linux/if_pppox.h>
-#if 0
-#endif
 
 #ifndef _ROOT_PATH
 #define _ROOT_PATH ""

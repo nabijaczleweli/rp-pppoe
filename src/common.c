@@ -247,25 +247,6 @@ printErr(char const *str)
     syslog(LOG_ERR, "%s", str);
 }
 
-
-/**********************************************************************
-*%FUNCTION: strDup
-*%ARGUMENTS:
-* str -- string to copy
-*%RETURNS:
-* A malloc'd copy of str.  Exits if malloc fails.
-***********************************************************************/
-char *
-strDup(char const *str)
-{
-    char *copy = malloc(strlen(str)+1);
-    if (!copy) {
-	rp_fatal("strdup failed");
-    }
-    strcpy(copy, str);
-    return copy;
-}
-
 /**********************************************************************
 *%FUNCTION: computeTCPChecksum
 *%ARGUMENTS:

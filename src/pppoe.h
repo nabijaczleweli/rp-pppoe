@@ -329,7 +329,6 @@ void syncReadFromPPP(PPPoEConnection *conn, PPPoEPacket *packet);
 void asyncReadFromPPP(PPPoEConnection *conn, PPPoEPacket *packet);
 void asyncReadFromEth(PPPoEConnection *conn, int sock, int clampMss);
 void syncReadFromEth(PPPoEConnection *conn, int sock, int clampMss);
-char *strDup(char const *str);
 void sendPADT(PPPoEConnection *conn, char const *msg);
 void sendPADTf(PPPoEConnection *conn, char const *fmt, ...);
 
@@ -343,7 +342,7 @@ void discovery(PPPoEConnection *conn);
 unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
 		       PPPoETag *tag);
 
-#define SET_STRING(var, val) do { if (var) free(var); var = strDup(val); } while(0);
+#define SET_STRING(var, val) do { if (var) free(var); var = strdup(val); if (!var) rp_fatal("strdup failed"); } while(0);
 
 #define CHECK_ROOM(cursor, start, len) \
 do {\

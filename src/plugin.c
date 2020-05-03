@@ -404,8 +404,9 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
 		r = 0;
 	    } else {
 		if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
-		    error("Interface %s not Ethernet", cmd);
-		    r=0;
+		    if (doit)
+			error("Interface %s not Ethernet", cmd);
+		    r = 0;
 		}
 	    }
 	}

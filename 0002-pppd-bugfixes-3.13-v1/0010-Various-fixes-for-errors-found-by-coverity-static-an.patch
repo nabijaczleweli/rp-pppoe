@@ -1,0 +1,71 @@
+From 71aef66bcb061380063904106ba887c4b4a0de9d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jaroslav=20=C5=A0karvada?= <jskarvad@redhat.com>
+Date: Mon, 6 May 2019 00:46:02 +0200
+Subject: [PATCH 10/13] Various fixes for errors found by coverity static
+ analysis
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Jaroslav Škarvada <jskarvad@redhat.com>
+---
+ src/if.c     | 6 +++---
+ src/plugin.c | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/if.c b/src/if.c
+index 1564ca1..ea1c2f2 100644
+--- a/src/if.c
++++ b/src/if.c
+@@ -325,7 +325,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     /* Check that the interface is up */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCGIFFLAGS)");
+     }
+@@ -344,7 +344,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ 
+     /* Sanity check on MTU -- apparently does not work on OpenBSD */
+ #if !defined(__OpenBSD__)
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCGIFMTU)");
+     }
+@@ -389,7 +389,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     /* Bind the interface to the filter */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, BIOCSETIF, &ifr) < 0) {
+ 	char buffer[256];
+ 	sprintf(buffer, "ioctl(BIOCSETIF) can't select interface %.16s",
+diff --git a/src/plugin.c b/src/plugin.c
+index c7a182f..1a7fd5f 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -163,7 +163,7 @@ PPPOEConnectDevice(void)
+ 	error("Can't get MTU for %s: %m", conn->ifName);
+ 	return -1;
+     }
+-    strncpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, conn->ifName, sizeof(ifr.ifr_name));
+     if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
+ 	error("Can't get MTU for %s: %m", conn->ifName);
+ 	close(s);
+@@ -418,7 +418,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+     if (r) {
+ 	seen_devnam[seen_idx] = 1;
+ 	if (doit) {
+-	    strncpy(devnam, cmd, sizeof(devnam));
++	    strlcpy(devnam, cmd, sizeof(devnam));
+ 	    if (the_channel != &pppoe_channel) {
+ 
+ 		the_channel = &pppoe_channel;
+-- 
+2.20.1
+

@@ -1,0 +1,31 @@
+From f4483fde68dd06e98224fc2fe905c44daf1d8c42 Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 21:19:36 +0200
+Subject: [PATCH 05/13] Remove unnecessary casts from common.c
+
+Based on pppd commit 427e3d851c86e35655e14f1dfa9c831a8fab94d9
+by Paul Mackerras
+---
+ src/common.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/common.c b/src/common.c
+index b074f22..56edde7 100644
+--- a/src/common.c
++++ b/src/common.c
+@@ -82,10 +82,8 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+     curTag = packet->payload;
+     while(curTag - packet->payload < len) {
+ 	/* Alignment is not guaranteed, so do this by hand... */
+-	tagType = (((UINT16_t) curTag[0]) << 8) +
+-	    (UINT16_t) curTag[1];
+-	tagLen = (((UINT16_t) curTag[2]) << 8) +
+-	    (UINT16_t) curTag[3];
++	tagType = (curTag[0] << 8) + curTag[1];
++	tagLen = (curTag[2] << 8) + curTag[3];
+ 	if (tagType == TAG_END_OF_LIST) {
+ 	    return 0;
+ 	}
+-- 
+2.20.1
+

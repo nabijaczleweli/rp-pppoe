@@ -1,0 +1,74 @@
+From 1af4cc1376631cf5f33015c7f52a8c0976ecee94 Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 23:55:14 +0200
+Subject: [PATCH 11/13] Remove all references to cdefs.h
+
+Defines __P(), not used anywhere in the codebase
+
+Based on pppd commit 3202f8916306cc42bcabbae48ae45d0e18ab0826
+by Kurt Van Dijck
+---
+ src/config.h.in  | 3 ---
+ src/configure    | 2 +-
+ src/configure.in | 2 +-
+ src/pppoe.h      | 4 ----
+ 4 files changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/src/config.h.in b/src/config.h.in
+index abee6e5..d0050bf 100644
+--- a/src/config.h.in
++++ b/src/config.h.in
+@@ -101,9 +101,6 @@
+ /* Define if you have the <netpacket/packet.h> header file.  */
+ #undef HAVE_NETPACKET_PACKET_H
+ 
+-/* Define if you have the <sys/cdefs.h> header file.  */
+-#undef HAVE_SYS_CDEFS_H
+-
+ /* Define if you have the <sys/dlpi.h> header file.  */
+ #undef HAVE_SYS_DLPI_H
+ 
+diff --git a/src/configure b/src/configure
+index a995d85..d7259f0 100755
+--- a/src/configure
++++ b/src/configure
+@@ -3688,7 +3688,7 @@ fi
+ done
+ 
+ 
+-for ac_header in fcntl.h sys/dlpi.h sys/ioctl.h sys/time.h syslog.h unistd.h net/if_arp.h netinet/if_ether.h getopt.h sys/uio.h sys/param.h fcntl.h net/bpf.h netpacket/packet.h net/ethernet.h asm/types.h linux/if_packet.h linux/if_ether.h sys/socket.h sys/cdefs.h net/if.h net/if_dl.h net/if_ether.h net/if_types.h netinet/if_ether.h net/if_types.h net/if_dl.h
++for ac_header in fcntl.h sys/dlpi.h sys/ioctl.h sys/time.h syslog.h unistd.h net/if_arp.h netinet/if_ether.h getopt.h sys/uio.h sys/param.h fcntl.h net/bpf.h netpacket/packet.h net/ethernet.h asm/types.h linux/if_packet.h linux/if_ether.h sys/socket.h net/if.h net/if_dl.h net/if_ether.h net/if_types.h netinet/if_ether.h net/if_types.h net/if_dl.h
+ do :
+   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+diff --git a/src/configure.in b/src/configure.in
+index 531519c..2790483 100644
+--- a/src/configure.in
++++ b/src/configure.in
+@@ -18,7 +18,7 @@ dnl Checks for libraries.
+ dnl Checks for header files.
+ AC_HEADER_STDC
+ AC_HEADER_SYS_WAIT
+-AC_CHECK_HEADERS(fcntl.h sys/dlpi.h sys/ioctl.h sys/time.h syslog.h unistd.h net/if_arp.h netinet/if_ether.h getopt.h sys/uio.h sys/param.h fcntl.h net/bpf.h netpacket/packet.h net/ethernet.h asm/types.h linux/if_packet.h linux/if_ether.h sys/socket.h sys/cdefs.h net/if.h net/if_dl.h net/if_ether.h net/if_types.h netinet/if_ether.h net/if_types.h net/if_dl.h)
++AC_CHECK_HEADERS(fcntl.h sys/dlpi.h sys/ioctl.h sys/time.h syslog.h unistd.h net/if_arp.h netinet/if_ether.h getopt.h sys/uio.h sys/param.h fcntl.h net/bpf.h netpacket/packet.h net/ethernet.h asm/types.h linux/if_packet.h linux/if_ether.h sys/socket.h net/if.h net/if_dl.h net/if_ether.h net/if_types.h netinet/if_ether.h net/if_types.h net/if_dl.h)
+ AC_CHECK_HEADERS(linux/if.h, [], [], [#include<sys/socket.h>])
+ AC_CHECK_HEADERS(linux/if_pppox.h, [], [],
+ [
+diff --git a/src/pppoe.h b/src/pppoe.h
+index 758bba4..fa6cdac 100644
+--- a/src/pppoe.h
++++ b/src/pppoe.h
+@@ -43,10 +43,6 @@ extern int IsSetID;
+ #error Unknown method for accessing raw Ethernet frames
+ #endif
+ 
+-#ifdef HAVE_SYS_CDEFS_H
+-#include <sys/cdefs.h>
+-#endif
+-
+ #ifdef HAVE_SYS_SOCKET_H
+ #include <sys/socket.h>
+ #endif
+-- 
+2.20.1
+

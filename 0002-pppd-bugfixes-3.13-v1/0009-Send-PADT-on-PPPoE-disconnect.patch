@@ -1,0 +1,35 @@
+From 9b1636832479f2221d5309d957fbd4cfac462a70 Mon Sep 17 00:00:00 2001
+From: Simon Farnsworth <simon@farnz.org.uk>
+Date: Sun, 1 Mar 2015 11:53:58 +0000
+Subject: [PATCH 09/13] Send PADT on PPPoE disconnect
+
+Once we've terminated the PPP session, there is no chance of a PPP layer
+disconnect. Some PPPoE relays don't detect the PPP session going down, and
+depend on a long timeout or a PPPoE PADT to terminate the session.
+
+Send a PADT on disconnect to work around these buggy relays.
+
+Signed-off-by: Simon Farnsworth <simon@farnz.org.uk>
+---
+ src/plugin.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugin.c b/src/plugin.c
+index 01a3995..c7a182f 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -325,7 +325,10 @@ PPPOEDisconnectDevice(void)
+ 	return;
+     }
+     close(conn->sessionSocket);
+-    close(conn->discoverySocket);
++    if (conn->discoverySocket >= 0) {
++	sendPADT(conn, NULL);
++	close(conn->discoverySocket);
++    }
+ 
+     /* Do NOT free conn; if pppd persist is on, we'll need it again */
+ }
+-- 
+2.20.1
+

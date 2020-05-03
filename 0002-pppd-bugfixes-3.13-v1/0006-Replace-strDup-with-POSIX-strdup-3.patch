@@ -1,0 +1,106 @@
+From 302a25dd297ce259f803951dea58d9b37b35712b Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 22:19:05 +0200
+Subject: [PATCH 06/13] Replace strDup() with POSIX strdup(3)
+
+Inspired by pppd commit 427e3d851c86e35655e14f1dfa9c831a8fab94d9
+by Paul Mackerras
+---
+ src/common.c      | 19 -------------------
+ src/plugin.c      |  2 --
+ src/pppoe-sniff.c |  1 +
+ src/pppoe.c       |  1 +
+ src/pppoe.h       |  3 +--
+ 5 files changed, 3 insertions(+), 23 deletions(-)
+
+diff --git a/src/common.c b/src/common.c
+index 56edde7..2473e96 100644
+--- a/src/common.c
++++ b/src/common.c
+@@ -247,25 +247,6 @@ printErr(char const *str)
+     syslog(LOG_ERR, "%s", str);
+ }
+ 
+-
+-/**********************************************************************
+-*%FUNCTION: strDup
+-*%ARGUMENTS:
+-* str -- string to copy
+-*%RETURNS:
+-* A malloc'd copy of str.  Exits if malloc fails.
+-***********************************************************************/
+-char *
+-strDup(char const *str)
+-{
+-    char *copy = malloc(strlen(str)+1);
+-    if (!copy) {
+-	rp_fatal("strdup failed");
+-    }
+-    strcpy(copy, str);
+-    return copy;
+-}
+-
+ /**********************************************************************
+ *%FUNCTION: computeTCPChecksum
+ *%ARGUMENTS:
+diff --git a/src/plugin.c b/src/plugin.c
+index 3d144ba..e1e93d8 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -55,8 +55,6 @@
+ #include <net/if_arp.h>
+ #include <linux/ppp_defs.h>
+ #include <linux/if_pppox.h>
+-#if 0
+-#endif
+ 
+ #ifndef _ROOT_PATH
+ #define _ROOT_PATH ""
+diff --git a/src/pppoe-sniff.c b/src/pppoe-sniff.c
+index f254b95..ce3b363 100644
+--- a/src/pppoe-sniff.c
++++ b/src/pppoe-sniff.c
+@@ -14,6 +14,7 @@
+ *
+ ***********************************************************************/
+ 
++#define _GNU_SOURCE 1
+ #include "pppoe.h"
+ 
+ #ifdef HAVE_GETOPT_H
+diff --git a/src/pppoe.c b/src/pppoe.c
+index 07d99f1..70bfa29 100644
+--- a/src/pppoe.c
++++ b/src/pppoe.c
+@@ -13,6 +13,7 @@
+ *
+ ***********************************************************************/
+ 
++#define _GNU_SOURCE 1
+ #include "pppoe.h"
+ 
+ #ifdef HAVE_SYSLOG_H
+diff --git a/src/pppoe.h b/src/pppoe.h
+index a593b43..758bba4 100644
+--- a/src/pppoe.h
++++ b/src/pppoe.h
+@@ -329,7 +329,6 @@ void syncReadFromPPP(PPPoEConnection *conn, PPPoEPacket *packet);
+ void asyncReadFromPPP(PPPoEConnection *conn, PPPoEPacket *packet);
+ void asyncReadFromEth(PPPoEConnection *conn, int sock, int clampMss);
+ void syncReadFromEth(PPPoEConnection *conn, int sock, int clampMss);
+-char *strDup(char const *str);
+ void sendPADT(PPPoEConnection *conn, char const *msg);
+ void sendPADTf(PPPoEConnection *conn, char const *fmt, ...);
+ 
+@@ -343,7 +342,7 @@ void discovery(PPPoEConnection *conn);
+ unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
+ 		       PPPoETag *tag);
+ 
+-#define SET_STRING(var, val) do { if (var) free(var); var = strDup(val); } while(0);
++#define SET_STRING(var, val) do { if (var) free(var); var = strdup(val); if (!var) rp_fatal("strdup failed"); } while(0);
+ 
+ #define CHECK_ROOM(cursor, start, len) \
+ do {\
+-- 
+2.20.1
+

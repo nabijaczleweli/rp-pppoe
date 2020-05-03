@@ -1,11 +1,13 @@
-pppd patches to rp-pppoe
-========================
+pppd (and more?) patches to rp-pppoe
+====================================
 
 Patches in all/ acquired by format-patching all commits returned by git log pppd/plugins/rp-pppoe/.
 
-Patches in relevant-1.13/ are a subset of the patches in all/,
-  based on whether they're relevant (can be applied in a way that looks like it makes) to the 1.13 source;
-  see NOTES-1.13 for tags and mapping.
+Patches in relevant-3.13/ are a subset of the patches in all/,
+  based on whether they're relevant (can be applied in a way that looks like it makes) to the 3.13 source;
+  see NOTES-3.13 for tags and mapping.
+
+Patches in pppd-bugfixes-3.13-v1/ correspond to the upstream/3.13..pppd-bugfixes-3.13-v1 commits.
 
 Based on a checkout of git://git.ozlabs.org/~paulus/ppp.git on 2020-05-02 16:32:05 +0200 at 41a73232c16e9a063cfe3fad461c94af3f450f6c.
 

@@ -1,0 +1,408 @@
+From 317ab903c22257978120df77cdd054a33fe4b614 Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 20:39:42 +0200
+Subject: [PATCH 04/13] Use one 8-bit bitfield and macros for both ver and type
+ in PPPoEPacket
+
+This also removes a configure-time check against how the compiler lays
+out bitfields
+
+Idea based on pppd commit 427e3d851c86e35655e14f1dfa9c831a8fab94d9
+by Paul Mackerras
+---
+ src/common.c       | 19 ++++++++---------
+ src/config.h.in    |  3 ---
+ src/configure      | 53 ----------------------------------------------
+ src/configure.in   | 36 -------------------------------
+ src/discovery.c    |  6 ++----
+ src/pppoe-server.c | 14 +++++-------
+ src/pppoe-sniff.c  |  4 ++--
+ src/pppoe.c        | 19 ++++++++---------
+ src/pppoe.h        | 12 +++++------
+ src/relay.c        |  7 +++---
+ 10 files changed, 35 insertions(+), 138 deletions(-)
+
+diff --git a/src/common.c b/src/common.c
+index e166402..b074f22 100644
+--- a/src/common.c
++++ b/src/common.c
+@@ -63,12 +63,12 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+     unsigned char *curTag;
+     UINT16_t tagType, tagLen;
+ 
+-    if (packet->ver != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
++    if (PPPOE_VER(packet->vertype) != 1) {
++	syslog(LOG_ERR, "Invalid PPPoE version (%d)", PPPOE_VER(packet->vertype));
+ 	return -1;
+     }
+-    if (packet->type != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
++    if (PPPOE_TYPE(packet->vertype) != 1) {
++	syslog(LOG_ERR, "Invalid PPPoE type (%d)", PPPOE_TYPE(packet->vertype));
+ 	return -1;
+     }
+ 
+@@ -118,12 +118,12 @@ findTag(PPPoEPacket *packet, UINT16_t type, PPPoETag *tag)
+     unsigned char *curTag;
+     UINT16_t tagType, tagLen;
+ 
+-    if (packet->ver != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE version (%d)", (int) packet->ver);
++    if (PPPOE_VER(packet->vertype) != 1) {
++	syslog(LOG_ERR, "Invalid PPPoE version (%d)", PPPOE_VER(packet->vertype));
+ 	return NULL;
+     }
+-    if (packet->type != 1) {
+-	syslog(LOG_ERR, "Invalid PPPoE type (%d)", (int) packet->type);
++    if (PPPOE_TYPE(packet->vertype) != 1) {
++	syslog(LOG_ERR, "Invalid PPPoE type (%d)", PPPOE_TYPE(packet->vertype));
+ 	return NULL;
+     }
+ 
+@@ -501,8 +501,7 @@ sendPADT(PPPoEConnection *conn, char const *msg)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADT;
+     packet.session = conn->session;
+ 
+diff --git a/src/config.h.in b/src/config.h.in
+index a905c71..abee6e5 100644
+--- a/src/config.h.in
++++ b/src/config.h.in
+@@ -131,9 +131,6 @@
+ /* Define if you have the N_HDLC line discipline in pty.h */
+ #undef HAVE_N_HDLC
+ 
+-/* Define if bitfields are packed in reverse order */
+-#undef PACK_BITFIELDS_REVERSED
+-
+ /* Define to include debugging code */
+ #undef DEBUGGING_ENABLED
+ 
+diff --git a/src/configure b/src/configure
+index 338aea2..a995d85 100755
+--- a/src/configure
++++ b/src/configure
+@@ -4650,59 +4650,6 @@ $as_echo "$as_me: WARNING: *** I will keep going, but it may not work." >&2;}
+ 	;;
+ esac
+ 
+-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking packing order of bit fields" >&5
+-$as_echo_n "checking packing order of bit fields... " >&6; }
+-if test "${rpppoe_cv_pack_bitfields+set}" != set ; then
+-if test "$cross_compiling" = yes; then :
+-  $ECHO "no defaults for cross-compiling"; exit 0
+-else
+-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-/* end confdefs.h.  */
+-
+-union foo {
+-    struct bar {
+-	unsigned int ver:4;
+-	unsigned int type:4;
+-    } bb;
+-    unsigned char baz;
+-};
+-
+-int
+-main(void)
+-{
+-    union foo x;
+-    x.bb.ver = 1;
+-    x.bb.type = 2;
+-    if (x.baz == 0x21) {
+-	return 1;
+-    } else if (x.baz == 0x12) {
+-	return 0;
+-    } else {
+-	return 2;
+-    }
+-}
+-_ACEOF
+-if ac_fn_c_try_run "$LINENO"; then :
+-  rpppoe_cv_pack_bitfields=normal
+-else
+-  rpppoe_cv_pack_bitfields=rev
+-fi
+-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+-  conftest.$ac_objext conftest.beam conftest.$ac_ext
+-fi
+-
+-fi
+-
+-if test "$rpppoe_cv_pack_bitfields" = "rev" ; then
+-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: reversed" >&5
+-$as_echo "reversed" >&6; }
+-	$as_echo "#define PACK_BITFIELDS_REVERSED 1" >>confdefs.h
+-
+-else
+-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: normal" >&5
+-$as_echo "normal" >&6; }
+-fi
+-
+ # Sigh... got to fix this up for tcl
+ test "x$prefix" = xNONE && prefix=$ac_default_prefix
+ # Let make expand exec_prefix.
+diff --git a/src/configure.in b/src/configure.in
+index ade3fa8..531519c 100644
+--- a/src/configure.in
++++ b/src/configure.in
+@@ -229,42 +229,6 @@ case "$PPPD_VERSION" in
+ 	;;
+ esac
+ 
+-dnl Figure out packing order of structures
+-AC_MSG_CHECKING([packing order of bit fields])
+-if test "${rpppoe_cv_pack_bitfields+set}" != set ; then
+-AC_TRY_RUN([
+-union foo {
+-    struct bar {
+-	unsigned int ver:4;
+-	unsigned int type:4;
+-    } bb;
+-    unsigned char baz;
+-};
+-
+-int
+-main(void)
+-{
+-    union foo x;
+-    x.bb.ver = 1;
+-    x.bb.type = 2;
+-    if (x.baz == 0x21) {
+-	return 1;
+-    } else if (x.baz == 0x12) {
+-	return 0;
+-    } else {
+-	return 2;
+-    }
+-}], rpppoe_cv_pack_bitfields=normal, rpppoe_cv_pack_bitfields=rev,
+-$ECHO "no defaults for cross-compiling"; exit 0)
+-fi
+-
+-if test "$rpppoe_cv_pack_bitfields" = "rev" ; then
+-	AC_MSG_RESULT(reversed)
+-	AC_DEFINE(PACK_BITFIELDS_REVERSED)
+-else
+-	AC_MSG_RESULT(normal)
+-fi
+-
+ # Sigh... got to fix this up for tcl
+ test "x$prefix" = xNONE && prefix=$ac_default_prefix
+ # Let make expand exec_prefix.
+diff --git a/src/discovery.c b/src/discovery.c
+index 777394a..40976e7 100644
+--- a/src/discovery.c
++++ b/src/discovery.c
+@@ -314,8 +314,7 @@ sendPADI(PPPoEConnection *conn)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADI;
+     packet.session = 0;
+ 
+@@ -550,8 +549,7 @@ sendPADR(PPPoEConnection *conn)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADR;
+     packet.session = 0;
+ 
+diff --git a/src/pppoe-server.c b/src/pppoe-server.c
+index d42b223..bb7724f 100644
+--- a/src/pppoe-server.c
++++ b/src/pppoe-server.c
+@@ -696,8 +696,7 @@ processPADI(Interface *ethif, PPPoEPacket *packet, int len)
+     memcpy(pado.ethHdr.h_dest, packet->ethHdr.h_source, ETH_ALEN);
+     memcpy(pado.ethHdr.h_source, myAddr, ETH_ALEN);
+     pado.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    pado.ver = 1;
+-    pado.type = 1;
++    pado.vertype = PPPOE_VER_TYPE(1, 1);
+     pado.code = CODE_PADO;
+     pado.session = 0;
+     plen = TAG_HDR_SIZE + acname_len;
+@@ -1029,8 +1028,7 @@ processPADR(Interface *ethif, PPPoEPacket *packet, int len)
+     memcpy(pads.ethHdr.h_dest, packet->ethHdr.h_source, ETH_ALEN);
+     memcpy(pads.ethHdr.h_source, myAddr, ETH_ALEN);
+     pads.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    pads.ver = 1;
+-    pads.type = 1;
++    pads.vertype = PPPOE_VER_TYPE(1, 1);
+     pads.code = CODE_PADS;
+ 
+     pads.session = cliSession->sess;
+@@ -1784,7 +1782,7 @@ serverProcessPacket(Interface *i)
+     }
+ 
+     /* Sanity check on packet */
+-    if (packet.ver != 1 || packet.type != 1) {
++    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
+ 	/* Syslog an error */
+ 	return;
+     }
+@@ -1849,8 +1847,7 @@ sendErrorPADS(int sock,
+     memcpy(pads.ethHdr.h_dest, dest, ETH_ALEN);
+     memcpy(pads.ethHdr.h_source, source, ETH_ALEN);
+     pads.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    pads.ver = 1;
+-    pads.type = 1;
++    pads.vertype = PPPOE_VER_TYPE(1, 1);
+     pads.code = CODE_PADS;
+ 
+     pads.session = htons(0);
+@@ -2323,8 +2320,7 @@ sendHURLorMOTM(PPPoEConnection *conn, char const *url, UINT16_t tag)
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+ 
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_PADM;
+     packet.session = conn->session;
+ 
+diff --git a/src/pppoe-sniff.c b/src/pppoe-sniff.c
+index a7fb72b..f254b95 100644
+--- a/src/pppoe-sniff.c
++++ b/src/pppoe-sniff.c
+@@ -203,7 +203,7 @@ main(int argc, char *argv[])
+     while (!SeenPADR) {
+ 	if (receivePacket(sock, &pkt, &size) < 0) continue;
+ 	if (ntohs(pkt.length) + HDR_SIZE > size) continue;
+-	if (pkt.ver != 1 || pkt.type != 1)       continue;
++	if (PPPOE_VER(pkt.vertype) != 1 || PPPOE_TYPE(pkt.vertype) != 1) continue;
+ 	if (pkt.code != CODE_PADR)               continue;
+ 
+ 	/* Looks promising... parse it */
+@@ -218,7 +218,7 @@ main(int argc, char *argv[])
+     while (!SeenSess) {
+ 	if (receivePacket(sock, &pkt, &size) < 0) continue;
+ 	if (ntohs(pkt.length) + HDR_SIZE > size) continue;
+-	if (pkt.ver != 1 || pkt.type != 1)       continue;
++	if (PPPOE_VER(pkt.vertype) != 1 || PPPOE_TYPE(pkt.vertype) != 1) continue;
+ 	if (pkt.code != CODE_SESS)               continue;
+ 
+ 	/* Cool! */
+diff --git a/src/pppoe.c b/src/pppoe.c
+index 9573afa..07d99f1 100644
+--- a/src/pppoe.c
++++ b/src/pppoe.c
+@@ -241,8 +241,7 @@ session(PPPoEConnection *conn)
+     memcpy(packet.ethHdr.h_dest, conn->peerEth, ETH_ALEN);
+     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Session);
+-    packet.ver = 1;
+-    packet.type = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = CODE_SESS;
+     packet.session = conn->session;
+ 
+@@ -792,12 +791,12 @@ asyncReadFromEth(PPPoEConnection *conn, int sock, int clampMss)
+ 	syslog(LOG_ERR, "Unexpected packet code %d", (int) packet.code);
+ 	return;
+     }
+-    if (packet.ver != 1) {
+-	syslog(LOG_ERR, "Unexpected packet version %d", (int) packet.ver);
++    if (PPPOE_VER(packet.vertype) != 1) {
++	syslog(LOG_ERR, "Unexpected packet version %d", PPPOE_VER(packet.vertype));
+ 	return;
+     }
+-    if (packet.type != 1) {
+-	syslog(LOG_ERR, "Unexpected packet type %d", (int) packet.type);
++    if (PPPOE_TYPE(packet.vertype) != 1) {
++	syslog(LOG_ERR, "Unexpected packet type %d", PPPOE_TYPE(packet.vertype));
+ 	return;
+     }
+     if (memcmp(packet.ethHdr.h_dest, conn->myEth, ETH_ALEN)) {
+@@ -921,12 +920,12 @@ syncReadFromEth(PPPoEConnection *conn, int sock, int clampMss)
+ 	syslog(LOG_ERR, "Unexpected packet code %d", (int) packet.code);
+ 	return;
+     }
+-    if (packet.ver != 1) {
+-	syslog(LOG_ERR, "Unexpected packet version %d", (int) packet.ver);
++    if (PPPOE_VER(packet.vertype) != 1) {
++	syslog(LOG_ERR, "Unexpected packet version %d", PPPOE_VER(packet.vertype));
+ 	return;
+     }
+-    if (packet.type != 1) {
+-	syslog(LOG_ERR, "Unexpected packet type %d", (int) packet.type);
++    if (PPPOE_TYPE(packet.vertype) != 1) {
++	syslog(LOG_ERR, "Unexpected packet type %d", PPPOE_TYPE(packet.vertype));
+ 	return;
+     }
+     if (memcmp(packet.ethHdr.h_dest, conn->myEth, ETH_ALEN)) {
+diff --git a/src/pppoe.h b/src/pppoe.h
+index 7006b6a..a593b43 100644
+--- a/src/pppoe.h
++++ b/src/pppoe.h
+@@ -219,19 +219,17 @@ extern void dropPrivs(void);
+ /* A PPPoE Packet, including Ethernet headers */
+ typedef struct PPPoEPacketStruct {
+     struct ethhdr ethHdr;	/* Ethernet header */
+-#ifdef PACK_BITFIELDS_REVERSED
+-    unsigned int type:4;	/* PPPoE Type (must be 1) */
+-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
+-#else
+-    unsigned int ver:4;		/* PPPoE Version (must be 1) */
+-    unsigned int type:4;	/* PPPoE Type (must be 1) */
+-#endif
++    unsigned int vertype:8;	/* PPPoE Version (high nibble) and Type (low nibble) (must both be 1) */
+     unsigned int code:8;	/* PPPoE code */
+     unsigned int session:16;	/* PPPoE session */
+     unsigned int length:16;	/* Payload length */
+     unsigned char payload[ETH_JUMBO_LEN]; /* A bit of room to spare */
+ } PPPoEPacket;
+ 
++#define PPPOE_VER(vt)	((vt) >> 4)
++#define PPPOE_TYPE(vt)	((vt) & 0xf)
++#define PPPOE_VER_TYPE(v, t)	(((v) << 4) | (t))
++
+ /* Header size of a PPPoE packet */
+ #define PPPOE_OVERHEAD 6  /* type, code, session, length */
+ #define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+diff --git a/src/relay.c b/src/relay.c
+index 83e2ee0..571140c 100644
+--- a/src/relay.c
++++ b/src/relay.c
+@@ -826,7 +826,7 @@ relayGotDiscoveryPacket(PPPoEInterface const *iface)
+ 	return;
+     }
+     /* Ignore unknown code/version */
+-    if (packet.ver != 1 || packet.type != 1) {
++    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
+ 	return;
+     }
+ 
+@@ -886,7 +886,7 @@ relayGotSessionPacket(PPPoEInterface const *iface)
+     }
+ 
+     /* Ignore unknown code/version */
+-    if (packet.ver != 1 || packet.type != 1) {
++    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
+ 	return;
+     }
+ 
+@@ -1491,8 +1491,7 @@ relaySendError(unsigned char code,
+     memcpy(packet.ethHdr.h_source, iface->mac, ETH_ALEN);
+     memcpy(packet.ethHdr.h_dest, mac, ETH_ALEN);
+     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
+-    packet.type = 1;
+-    packet.ver = 1;
++    packet.vertype = PPPOE_VER_TYPE(1, 1);
+     packet.code = code;
+     packet.session = session;
+     packet.length = htons(0);
+-- 
+2.20.1
+

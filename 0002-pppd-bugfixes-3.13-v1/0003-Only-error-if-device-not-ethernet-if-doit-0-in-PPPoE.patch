@@ -1,0 +1,34 @@
+From b04e54559474e59b5ceb6cfabc64ae394d556ddc Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 19:50:17 +0200
+Subject: [PATCH 03/13] Only error if device not ethernet if doit!=0 in
+ PPPoEDevnameHook()
+
+This is more in line with how one'd expect the code to behave, since
+it's not critical to init, which is not being done, since doit==1
+
+Part of pppd commit ccc4c4604dd9e7316fe734b41b7327aa5906de3e
+by Paul Mackerras
+---
+ src/plugin.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/plugin.c b/src/plugin.c
+index b6b6ca0..3d144ba 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -404,8 +404,9 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 		r = 0;
+ 	    } else {
+ 		if (ifr.ifr_hwaddr.sa_family != ARPHRD_ETHER) {
+-		    error("Interface %s not Ethernet", cmd);
+-		    r=0;
++		    if (doit)
++			error("Interface %s not Ethernet", cmd);
++		    r = 0;
+ 		}
+ 	    }
+ 	}
+-- 
+2.20.1
+

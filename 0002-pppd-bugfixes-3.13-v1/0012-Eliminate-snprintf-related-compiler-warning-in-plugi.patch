@@ -1,0 +1,37 @@
+From 008cb3529722ce70746f9943e82c963720a9c20b Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 23:59:28 +0200
+Subject: [PATCH 12/13] Eliminate snprintf-related compiler warning in plugin.c
+
+GCC complains the output can be left NUL-unterminated,
+strlcpy() + strlcat() fix that
+
+Based on pppd commit 3ea9de913739667e2131d67d979ff175ec394e67
+by Paul Mackerras
+---
+ src/plugin.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/src/plugin.c b/src/plugin.c
+index 1a7fd5f..c53ee91 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -336,11 +336,12 @@ PPPOEDisconnectDevice(void)
+ static void
+ PPPOEDeviceOptions(void)
+ {
+-    char buf[256];
+-    snprintf(buf, 256, _PATH_ETHOPT "%s",devnam);
++    char buf[MAXPATHLEN];
++    strlcpy(buf, _PATH_ETHOPT, MAXPATHLEN);
++    strlcat(buf, devnam, MAXPATHLEN);
++
+     if(!options_from_file(buf, 0, 0, 1))
+ 	exit(EXIT_OPTION_ERROR);
+-
+ }
+ 
+ struct channel pppoe_channel;
+-- 
+2.20.1
+

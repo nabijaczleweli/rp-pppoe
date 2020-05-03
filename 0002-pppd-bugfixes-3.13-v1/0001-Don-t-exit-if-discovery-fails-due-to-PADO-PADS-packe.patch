@@ -1,0 +1,69 @@
+From e5fe76f88bcba127e58b24f6d7886615d279b04d Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 02:13:06 +0200
+Subject: [PATCH 01/13] Don't exit if discovery fails due to PADO/PADS packets
+ timing out
+
+discoverySocket is freed in plugin.c on error to avoid leaking FDs;
+pppoe.c uses it later so it's not freed
+
+Based on pppd commit 5d490c4106f4a34864c980b925e183cf3bf575e2 with fix
+from 6e6bb3246106e680463c106d1ee6b773fc4f9c5a;
+original patch sent by Marco d'Itri, fix from Paul Mackerras
+---
+ src/discovery.c | 8 ++++----
+ src/plugin.c    | 2 ++
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/discovery.c b/src/discovery.c
+index 4e1bf1e..777394a 100644
+--- a/src/discovery.c
++++ b/src/discovery.c
+@@ -764,12 +764,12 @@ discovery(PPPoEConnection *conn)
+     do {
+ 	padiAttempts++;
+ 	if (padiAttempts > MAX_PADI_ATTEMPTS) {
++	    printErr("Timeout waiting for PADO packets");
+ 	    if (persist) {
+ 		padiAttempts = 0;
+ 		timeout = conn->discoveryTimeout;
+-		printErr("Timeout waiting for PADO packets");
+ 	    } else {
+-		rp_fatal("Timeout waiting for PADO packets");
++		return;
+ 	    }
+ 	}
+ 	sendPADI(conn);
+@@ -797,14 +797,14 @@ discovery(PPPoEConnection *conn)
+     do {
+ 	padrAttempts++;
+ 	if (padrAttempts > MAX_PADI_ATTEMPTS) {
++	    printErr("Timeout waiting for PADS packets");
+ 	    if (persist) {
+ 		padrAttempts = 0;
+ 		timeout = conn->discoveryTimeout;
+-		printErr("Timeout waiting for PADS packets");
+ 		/* Go back to sending PADI again */
+ 		goto SEND_PADI;
+ 	    } else {
+-		rp_fatal("Timeout waiting for PADS packets");
++		return;
+ 	    }
+ 	}
+ 	sendPADR(conn);
+diff --git a/src/plugin.c b/src/plugin.c
+index a586166..9ffad86 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -217,6 +217,8 @@ PPPOEConnectDevice(void)
+         discovery(conn);
+ 	if (conn->discoveryState != STATE_SESSION) {
+ 	    error("Unable to complete PPPoE Discovery");
++	    close(conn->discoverySocket);
++	    conn->discoverySocket = -1;
+ 	    return -1;
+ 	}
+     }
+-- 
+2.20.1
+

@@ -1,0 +1,41 @@
+From 7dd7153ea4954844aeaa5e371ebee29dba67e0b9 Mon Sep 17 00:00:00 2001
+From: Paul Mackerras <paulus@ozlabs.org>
+Date: Mon, 30 Dec 2019 10:22:40 +1100
+Subject: [PATCH 13/13] plugins/rp-pppoe: Make tag parsing loop condition more
+ accurate
+
+The loop in parsePacket() that parses the tags in a received PPPoE
+packet uses a loop condition that checks if there is at least one
+more byte to be read; however, the tag header is 4 bytes.  Thus it
+could read 3 bytes past the end of the received data.  However,
+there is no possibility of reading past the end of the
+packet->payload array, since we previously checked that
+len <= ETH_JUMBO_LEN (which is sizeof(packet->payload)) - 6.
+Also, the tag length check will always fail (except for a tag
+type of TAG_END_OF_LIST, which terminates processing).
+
+This fixes the loop condition to require at least 4 bytes
+remaining, so that we know that the tag header is within the
+received data.
+
+Signed-off-by: Paul Mackerras <paulus@ozlabs.org>
+---
+ src/common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/common.c b/src/common.c
+index 2473e96..fcd724e 100644
+--- a/src/common.c
++++ b/src/common.c
+@@ -80,7 +80,7 @@ parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra)
+ 
+     /* Step through the tags */
+     curTag = packet->payload;
+-    while(curTag - packet->payload < len) {
++    while (curTag - packet->payload + TAG_HDR_SIZE <= len) {
+ 	/* Alignment is not guaranteed, so do this by hand... */
+ 	tagType = (curTag[0] << 8) + curTag[1];
+ 	tagLen = (curTag[2] << 8) + curTag[3];
+-- 
+2.20.1
+

@@ -12,7 +12,6 @@ Comments after ^ are after reading more and dropping/SHA after applying (see bra
 11:   git format-patch --start-number 3 5d490c4106f4a34864c980b925e183cf3bf575e2~1..5d490c4106f4a34864c980b925e183cf3bf575e2
 ^ common.c has the protocol discovery hunk already, I don't see a good reason to include the PPPOE_STANDALONE ifdef
   discovery.c's resillience hunks applied cleanly, plugin.c already included its; e5fe76f88bcba127e58b24f6d7886615d279b04d
-  TODO: plugin.c's PPPoEDevnameHook() hunk, maybe?
 
 12:   git format-patch --start-number 4 e9925858258e464095e7ee9d21a1facf789e9b38~1..e9925858258e464095e7ee9d21a1facf789e9b38
 ^ OldDevnameHook removal: c3c2321b820162fa3683b63fe667ad155151c49d
@@ -20,7 +19,7 @@ Comments after ^ are after reading more and dropping/SHA after applying (see bra
 
 15:   git format-patch --start-number 5 6e6bb3246106e680463c106d1ee6b773fc4f9c5a~1..6e6bb3246106e680463c106d1ee6b773fc4f9c5a
 ^ Removing conn->killSession only makes sense in the context of pppd which doesn't build the pppoe binary.
-  printf("-----------") has already been removed, die() doesn't e xist so exit() sounds reasonable
+  printf("-----------") has already been removed, die() doesn't exist so exit() sounds reasonable
   The FD leaks were caused by the resillience hunks in patch 0003, squashed: e5fe76f88bcba127e58b24f6d7886615d279b04d
   /* don't send PADT?? */ hunk squashed/overriden with 0016
 

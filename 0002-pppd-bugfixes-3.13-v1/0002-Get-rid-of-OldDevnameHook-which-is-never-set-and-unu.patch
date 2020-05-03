@@ -1,0 +1,52 @@
+From c3c2321b820162fa3683b63fe667ad155151c49d Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 3 May 2020 02:23:28 +0200
+Subject: [PATCH 02/13] Get rid of OldDevnameHook, which is never set and
+ unused
+
+Part of pppd commit e9925858258e464095e7ee9d21a1facf789e9b38
+by Paul Mackerras
+---
+ src/plugin.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/src/plugin.c b/src/plugin.c
+index 9ffad86..b6b6ca0 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -95,7 +95,7 @@ static option_t Options[] = {
+       "Only connect to specified MAC address" },
+     { NULL }
+ };
+-int (*OldDevnameHook)(char *cmd, char **argv, int doit) = NULL;
++
+ static PPPoEConnection *conn = NULL;
+ 
+ /**********************************************************************
+@@ -374,7 +374,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+        Patch based on suggestion from Mike Ireton.
+     */
+     if (seen_devnam[seen_idx]) {
+-	if (OldDevnameHook) return OldDevnameHook(cmd, argv, doit);
+ 	return 0;
+     }
+ 
+@@ -386,7 +385,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+     } else {
+ 	if (strncmp(cmd, "eth", 3) &&
+ 	    strncmp(cmd, "br", 2)) {
+-	    if (OldDevnameHook) return OldDevnameHook(cmd, argv, doit);
+ 	    return 0;
+ 	}
+     }
+@@ -449,7 +447,6 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 	return 1;
+     }
+ 
+-    if (OldDevnameHook) r = OldDevnameHook(cmd, argv, doit);
+     return r;
+ }
+ 
+-- 
+2.20.1
+

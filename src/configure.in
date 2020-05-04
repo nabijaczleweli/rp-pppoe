@@ -144,7 +144,6 @@ AC_CHECK_SIZEOF(unsigned long)
 
 dnl Check for location of pppd
 AC_PATH_PROG(PPPD, pppd, NOTFOUND, $PATH:/sbin:/usr/sbin:/usr/local/sbin)
-AC_PATH_PROG(ECHO, echo, echo)
 
 dnl Check for setsid (probably Linux-specific)
 AC_PATH_PROG(SETSID, setsid, "", $PATH:/sbin:/usr/sbin:/usr/local/sbin)
@@ -173,7 +172,7 @@ int main()
 	if (socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OE) >= 0) return 0; else return 1;
 }
 ],
-ac_cv_linux_kernel_pppoe=yes, ac_cv_linux_kernel_pppoe=no, [ac_cv_linux_kernel_pppoe=no; $ECHO "cross-compiling, default: "])
+ac_cv_linux_kernel_pppoe=yes, ac_cv_linux_kernel_pppoe=no, [ac_cv_linux_kernel_pppoe=no; echo "cross-compiling, default: "])
 else
 	ac_cv_linux_kernel_pppoe=no
 fi
@@ -287,7 +286,6 @@ AC_SUBST(LIC_DEFINE)
 AC_SUBST(PPPOE_SERVER_DEPS)
 AC_SUBST(RDYNAMIC)
 AC_SUBST(LIBEVENT)
-AC_SUBST(ECHO)
 AC_SUBST(LDFLAGS)
 
 datadir_evaluated=`eval echo $datadir`

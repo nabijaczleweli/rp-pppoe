@@ -1,0 +1,37 @@
+From 3fc30d98afeeec58396e6c8febb7d61ce1ccf3f6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=D0=BD=D0=B0=D0=B1?= <nabijaczleweli@gmail.com>
+Date: Mon, 4 May 2020 21:56:51 +0200
+Subject: [PATCH 6/6] Fix alignment of second copyright line in pppoe binary
+
+Before:
+RP-PPPoE Version 3.14, Copyright (C) 2001-2018 Roaring Penguin Software Inc.
+                  Copyright (C) 2018 Dianne Skoll
+
+After:
+RP-PPPoE Version 3.14, Copyright (C) 2001-2018 Roaring Penguin Software Inc.
+                       Copyright (C) 2018 Dianne Skoll
+---
+ src/pppoe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/pppoe.c b/src/pppoe.c
+index ca07832..be57bcd 100644
+--- a/src/pppoe.c
++++ b/src/pppoe.c
+@@ -380,11 +380,11 @@ usage(char const *argv0)
+ 	    "   -f disc:sess   -- Set Ethernet frame types (hex).\n"
+ 	    "   -h             -- Print usage information.\n\n"
+ 	    "RP-PPPoE Version %s, Copyright (C) 2001-2018 Roaring Penguin Software Inc.\n"
+-	    "                  Copyright (C) 2018 Dianne Skoll\n"
++	    "                 %*s  Copyright (C) 2018 Dianne Skoll\n"
+ 	    "RP-PPPoE comes with ABSOLUTELY NO WARRANTY.\n"
+ 	    "This is free software, and you are welcome to redistribute it under the terms\n"
+ 	    "of the GNU General Public License, version 2 or any later version.\n"
+-	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", VERSION);
++	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", VERSION, (int) strlen(VERSION), "");
+     exit(EXIT_SUCCESS);
+ }
+ 
+-- 
+2.20.1
+

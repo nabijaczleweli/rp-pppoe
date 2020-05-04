@@ -1,7 +1,7 @@
-From f33fca8520332af20f14529a41ec94ae2c515b0f Mon Sep 17 00:00:00 2001
+From 89f70790cddf2a5092b378bb7f7928099cf76805 Mon Sep 17 00:00:00 2001
 From: nabijaczleweli <nabijaczleweli@gmail.com>
 Date: Mon, 4 May 2020 18:26:03 +0200
-Subject: [PATCH 4/5] Always use echo from $PATH at runtime
+Subject: [PATCH 4/6] Always use echo from $PATH at runtime
 
 Also replaces one indirection per line with a {}-group indirection and
 ""-escapes some $-expansions in pppoe-start.in
@@ -30,9 +30,9 @@ https://tests.reproducible-builds.org/debian/rb-pkg/unstable/amd64/rp-pppoe.html
 ---
  scripts/pppoe-setup.in | 207 ++++++++++++++++++++---------------------
  scripts/pppoe-start.in | 108 ++++++++++-----------
- src/configure          |  45 +--------
+ src/configure          |  44 +--------
  src/configure.in       |   4 +-
- 4 files changed, 159 insertions(+), 205 deletions(-)
+ 4 files changed, 159 insertions(+), 204 deletions(-)
 
 diff --git a/scripts/pppoe-setup.in b/scripts/pppoe-setup.in
 index 4785eae..9327689 100755
@@ -579,7 +579,7 @@ index c90e46a..52a53bd 100755
  kill $CONNECT_PID > /dev/null 2>&1
  
 diff --git a/src/configure b/src/configure
-index d7259f0..f1b2d05 100755
+index d7259f0..dd5f6ab 100755
 --- a/src/configure
 +++ b/src/configure
 @@ -634,7 +634,6 @@ TARGETS

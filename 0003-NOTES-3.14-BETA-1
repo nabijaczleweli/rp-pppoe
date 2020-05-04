@@ -34,5 +34,9 @@ truncation in pppoe-server
 ^ e9960eda90e0e6ab1fdf8191486202e83de5e5b9
 
 VERSION macro collision with pppd
-^ specially handled for plugin.c, but discovery.h also includes pppd.h if PLUGIN defined
+^ specially handled for plugin.c, but discovery.c also includes pppd.h if PLUGIN defined
   ask if move all code to use RP_VERSION instead
+
+PPPoEConnection::debugFile should only exist ifdef DEBUGGING_ENABLED
+^ bundle with that
+  also should fclose(debugFile) on exit probably

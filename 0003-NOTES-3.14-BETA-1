@@ -1,0 +1,38 @@
+turbolinux can be merged back into init, it differs almost exclusively by whitespace and punctuation
+^ see turbolinux.diff
+  also probably deleted entirely, turbolinux is dead: http://www.turbolinux.com/, https://distrowatch.com/turbolinux; ask
+
+https://github.com/nabijaczleweli/rp-pppoe/commit/64573b5bd2f56a14484fcd2d3a1192f02c698493#diff-d19f18761bc91bbf474c63636e4b6b72R1112
+^ fixed in a6d7452272b79f03086c2c10cc26523dff22b5eb
+
+uncomment "@if test -r rp-pppoe.so; then $(install) -m 755 rp-pppoe.so $(DESTDIR)$(PLUGIN_DIR); fi" in makefile
+^ 14a71ca033ec9408abfe06ba71e46a7164df5487
+
+use $(PLUGIN_PATH) for install?
+^ no, it's only for embedding
+
+plugin.c: )
+  /**********************************************************************
+   * %FUNCTION: PPPoEDevnameHook
+   * %ARGUMENTS:
+   * cmd -- the command (actually, the device name
+   * argv -- argument vector
+   * doit -- if non-zero, set device name.  Otherwise, just check if possible
+   * %RETURNS:
+^ fixed in a6d7452272b79f03086c2c10cc26523dff22b5eb
+
+from Debian at 3.12-1.2: 06_typo_fixes.patch
+^ applied straightforwardly: 777b38391aa668374141ba0eabd20b5372a0521b
+
+from Debian at 3.12-1.2: 07_pppoestart-echo.patch
+^ applied more broadly: 89f70790cddf2a5092b378bb7f7928099cf76805
+
+pppoe-start.in: http://www.scyld.com is dead
+^ ask Dianne
+
+truncation in pppoe-server
+^ e9960eda90e0e6ab1fdf8191486202e83de5e5b9
+
+VERSION macro collision with pppd
+^ specially handled for plugin.c, but discovery.h also includes pppd.h if PLUGIN defined
+  ask if move all code to use RP_VERSION instead

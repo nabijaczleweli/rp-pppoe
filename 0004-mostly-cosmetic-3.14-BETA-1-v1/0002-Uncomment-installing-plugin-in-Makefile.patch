@@ -1,0 +1,27 @@
+From 14a71ca033ec9408abfe06ba71e46a7164df5487 Mon Sep 17 00:00:00 2001
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Mon, 4 May 2020 17:58:17 +0200
+Subject: [PATCH 2/5] Uncomment installing plugin in Makefile
+
+Took me a while to hunt down when I was first testing, since,
+unlike other artifacts, its installation was commented out
+---
+ src/Makefile.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Makefile.in b/src/Makefile.in
+index 058a720..2f58301 100644
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -190,7 +190,7 @@ install: all
+ 	-mkdir -p $(DESTDIR)/etc/ppp
+ 	-mkdir -p $(DESTDIR)$(PLUGIN_DIR)
+ 	-echo "# Directory created by rp-pppoe for kernel-mode plugin" > $(DESTDIR)$(PLUGIN_DIR)/README
+-	@if test -r rp-pppoe.so; then $(install) -m 755 rp-pppoe.so $(DESTDIR)$(PLUGIN_DIR); fi
++	if test -r rp-pppoe.so; then $(install) -m 755 rp-pppoe.so $(DESTDIR)$(PLUGIN_DIR); fi
+ 	@for i in pppoe.conf firewall-standalone firewall-masq ; do \
+ 		if [ ! -f $(DESTDIR)/etc/ppp/$$i ] ; then \
+ 			$(install) -m 644 ../configs/$$i $(DESTDIR)/etc/ppp ; \
+-- 
+2.20.1
+

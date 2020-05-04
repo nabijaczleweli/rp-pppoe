@@ -380,11 +380,11 @@ usage(char const *argv0)
 	    "   -f disc:sess   -- Set Ethernet frame types (hex).\n"
 	    "   -h             -- Print usage information.\n\n"
 	    "RP-PPPoE Version %s, Copyright (C) 2001-2018 Roaring Penguin Software Inc.\n"
-	    "                  Copyright (C) 2018 Dianne Skoll\n"
+	    "                 %*s  Copyright (C) 2018 Dianne Skoll\n"
 	    "RP-PPPoE comes with ABSOLUTELY NO WARRANTY.\n"
 	    "This is free software, and you are welcome to redistribute it under the terms\n"
 	    "of the GNU General Public License, version 2 or any later version.\n"
-	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", VERSION);
+	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", VERSION, (int) strlen(VERSION), "");
     exit(EXIT_SUCCESS);
 }
 

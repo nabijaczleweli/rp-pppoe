@@ -9,7 +9,7 @@ Also replaces one indirection per line with a {}-group indirection and
 This extends Andreas Henriksson's "Avoid useless indirection and full
 path embedding of echo" Debian patch, which can be found in
 d/p/07_pppoestart-echo.patch in rp-pppoe 3.12-1.2, and was originally
-submitted in https://bugs.debian.org/bug=915295. Original message
+submitted in https://bugs.debian.org/915295. Original message
 follows:
 
 Embedding the full path of echo at build-time, instead of relying

@@ -647,14 +647,6 @@ index d7259f0..f1b2d05 100755
  else
    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
-@@ -4710,7 +4668,6 @@ LIBEVENT=../libevent
- 
- 
- 
--
- datadir_evaluated=`eval echo $datadir`
- 
- 
 diff --git a/src/configure.in b/src/configure.in
 index 2790483..e24db0e 100644
 --- a/src/configure.in

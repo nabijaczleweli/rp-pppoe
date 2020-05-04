@@ -350,7 +350,7 @@ struct channel pppoe_channel;
 /**********************************************************************
  * %FUNCTION: PPPoEDevnameHook
  * %ARGUMENTS:
- * cmd -- the command (actually, the device name
+ * cmd -- the command (actually, the device name)
  * argv -- argument vector
  * doit -- if non-zero, set device name.  Otherwise, just check if possible
  * %RETURNS:

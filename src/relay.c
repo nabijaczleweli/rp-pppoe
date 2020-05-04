@@ -1110,7 +1110,7 @@ relayHandlePADO(PPPoEInterface const *iface,
 
     acIndex = iface - Interfaces;
 
-    /* Source address must be unicast */
+    /* Source address can't be broadcast */
     if (BROADCAST(packet->ethHdr.h_source)) {
 	syslog(LOG_ERR,
 	       "PADO packet from %02x:%02x:%02x:%02x:%02x:%02x on interface %s from a broadcast address",

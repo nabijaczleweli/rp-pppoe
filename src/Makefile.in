@@ -190,7 +190,7 @@ install: all
 	-mkdir -p $(DESTDIR)/etc/ppp
 	-mkdir -p $(DESTDIR)$(PLUGIN_DIR)
 	-echo "# Directory created by rp-pppoe for kernel-mode plugin" > $(DESTDIR)$(PLUGIN_DIR)/README
-	@if test -r rp-pppoe.so; then $(install) -m 755 rp-pppoe.so $(DESTDIR)$(PLUGIN_DIR); fi
+	if test -r rp-pppoe.so; then $(install) -m 755 rp-pppoe.so $(DESTDIR)$(PLUGIN_DIR); fi
 	@for i in pppoe.conf firewall-standalone firewall-masq ; do \
 		if [ ! -f $(DESTDIR)/etc/ppp/$$i ] ; then \
 			$(install) -m 644 ../configs/$$i $(DESTDIR)/etc/ppp ; \

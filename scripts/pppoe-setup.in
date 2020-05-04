@@ -8,8 +8,8 @@
 # LIC: GPL
 #
 # Copyright (C) 2000 Roaring Penguin Software Inc.
+# Copyright (C) 2018 Dianne Skoll
 #
-# $Id$
 #***********************************************************************
 
 # From AUTOCONF
@@ -41,7 +41,7 @@ copy() {
     fi
 }
 
-$ECHO "Welcome to the Roaring Penguin PPPoE client setup.  First, I will run"
+$ECHO "Welcome to the RP-PPPoE client setup.  First, I will run"
 $ECHO "some checks on your system to make sure the PPPoE client is installed"
 $ECHO "properly..."
 $ECHO ""

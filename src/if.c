@@ -7,6 +7,7 @@
 * Functions for opening a raw socket and reading/writing raw Ethernet frames.
 *
 * Copyright (C) 2000-2012 by Roaring Penguin Software Inc.
+* Copyright (C) 2018 Dianne Skoll
 *
 * This program may be distributed according to the terms of the GNU
 * General Public License, version 2 or (at your option) any later version.
@@ -325,7 +326,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
     }
 
     /* Check that the interface is up */
-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
 	fatalSys("ioctl(SIOCGIFFLAGS)");
     }
@@ -344,7 +345,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
 
     /* Sanity check on MTU -- apparently does not work on OpenBSD */
 #if !defined(__OpenBSD__)
-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
 	fatalSys("ioctl(SIOCGIFMTU)");
     }
@@ -389,7 +390,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
     }
 
     /* Bind the interface to the filter */
-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
     if (ioctl(fd, BIOCSETIF, &ifr) < 0) {
 	char buffer[256];
 	sprintf(buffer, "ioctl(BIOCSETIF) can't select interface %.16s",

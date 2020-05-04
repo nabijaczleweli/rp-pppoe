@@ -5,6 +5,7 @@
 * Implementation of a user-space PPPoE server
 *
 * Copyright (C) 2000-2012 Roaring Penguin Software Inc.
+* Copyright (C) 2018 Dianne Skoll
 *
 * This program may be distributed according to the terms of the GNU
 * General Public License, version 2 or (at your option) any later version.
@@ -696,8 +697,7 @@ processPADI(Interface *ethif, PPPoEPacket *packet, int len)
     memcpy(pado.ethHdr.h_dest, packet->ethHdr.h_source, ETH_ALEN);
     memcpy(pado.ethHdr.h_source, myAddr, ETH_ALEN);
     pado.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    pado.ver = 1;
-    pado.type = 1;
+    pado.vertype = PPPOE_VER_TYPE(1, 1);
     pado.code = CODE_PADO;
     pado.session = 0;
     plen = TAG_HDR_SIZE + acname_len;
@@ -1029,8 +1029,7 @@ processPADR(Interface *ethif, PPPoEPacket *packet, int len)
     memcpy(pads.ethHdr.h_dest, packet->ethHdr.h_source, ETH_ALEN);
     memcpy(pads.ethHdr.h_source, myAddr, ETH_ALEN);
     pads.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    pads.ver = 1;
-    pads.type = 1;
+    pads.vertype = PPPOE_VER_TYPE(1, 1);
     pads.code = CODE_PADS;
 
     pads.session = cliSession->sess;
@@ -1163,6 +1162,7 @@ usage(char const *argv0)
     fprintf(stderr, "   -i             -- Ignore PADI if no free sessions.\n");
     fprintf(stderr, "   -h             -- Print usage information.\n\n");
     fprintf(stderr, "PPPoE-Server Version %s, Copyright (C) 2001-2009 Roaring Penguin Software Inc.\n", VERSION);
+    fprintf(stderr, "                         Copyright (C) 2018-2019 Dianne Skoll\n");
 
 #ifndef HAVE_LICENSE
     fprintf(stderr, "PPPoE-Server comes with ABSOLUTELY NO WARRANTY.\n");
@@ -1170,7 +1170,7 @@ usage(char const *argv0)
     fprintf(stderr, "under the terms of the GNU General Public License, version 2\n");
     fprintf(stderr, "or (at your option) any later version.\n");
 #endif
-    fprintf(stderr, "http://www.roaringpenguin.com\n");
+    fprintf(stderr, "https://dianne.skoll.ca/projects/rp-pppoe/\n");
 }
 
 /**********************************************************************
@@ -1784,7 +1784,7 @@ serverProcessPacket(Interface *i)
     }
 
     /* Sanity check on packet */
-    if (packet.ver != 1 || packet.type != 1) {
+    if (PPPOE_VER(packet.vertype) != 1 || PPPOE_TYPE(packet.vertype) != 1) {
 	/* Syslog an error */
 	return;
     }
@@ -1849,8 +1849,7 @@ sendErrorPADS(int sock,
     memcpy(pads.ethHdr.h_dest, dest, ETH_ALEN);
     memcpy(pads.ethHdr.h_source, source, ETH_ALEN);
     pads.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    pads.ver = 1;
-    pads.type = 1;
+    pads.vertype = PPPOE_VER_TYPE(1, 1);
     pads.code = CODE_PADS;
 
     pads.session = htons(0);
@@ -2323,8 +2322,7 @@ sendHURLorMOTM(PPPoEConnection *conn, char const *url, UINT16_t tag)
     memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
 
     packet.ethHdr.h_proto = htons(Eth_PPPOE_Discovery);
-    packet.ver = 1;
-    packet.type = 1;
+    packet.vertype = PPPOE_VER_TYPE(1, 1);
     packet.code = CODE_PADM;
     packet.session = conn->session;
 

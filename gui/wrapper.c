@@ -7,6 +7,7 @@
 * C wrapper designed to run SUID root for controlling PPPoE connections.
 *
 * Copyright (C) 2005 by Roaring Penguin Software Inc.
+* Copyright (C) 2018 Dianne Skoll
 *
 * LIC: GPL
 *

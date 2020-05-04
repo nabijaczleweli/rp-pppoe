@@ -1,61 +1,61 @@
-diff --git a/scripts/pppoe-init-turbolinux.in b/scripts/pppoe-init.in
-index d35c801..8314c3e 100755
---- a/scripts/pppoe-init-turbolinux.in
-+++ b/scripts/pppoe-init.in
-@@ -1,15 +1,16 @@
+diff --git a/scripts/pppoe-init.in b/scripts/pppoe-init-turbolinux.in
+index 8314c3e..d35c801 100755
+--- a/scripts/pppoe-init.in
++++ b/scripts/pppoe-init-turbolinux.in
+@@ -1,16 +1,15 @@
  #!/bin/sh
  #
--# pppoe                 This script starts or stops a PPPoE connection
-+# pppoe                     This script starts or stops a PPPoE connection
+-# pppoe                     This script starts or stops a PPPoE connection
++# pppoe                 This script starts or stops a PPPoE connection
  #
  # chkconfig: 2345 99 01
  # description: Connects to PPPoE provider
  #
  # LIC: GPL
  #
--# Copyright (C) 2000 Roaring Penguin Software Inc.  This software may
--# be distributed under the terms of the GNU General Public License, version
--# 2 or any later version.
-+# Copyright (C) 2000 Roaring Penguin Software Inc.
-+# Copyright (C) 2018 Dianne Skoll
-+# This software may be distributed under the terms of the GNU General
-+# Public License, version 2 or any later version.
+-# Copyright (C) 2000 Roaring Penguin Software Inc.
+-# Copyright (C) 2018 Dianne Skoll
+-# This software may be distributed under the terms of the GNU General
+-# Public License, version 2 or any later version.
++# Copyright (C) 2000 Roaring Penguin Software Inc.  This software may
++# be distributed under the terms of the GNU General Public License, version
++# 2 or any later version.
  
  # Source function library if it exists
  test -r /etc/rc.d/init.d/functions && . /etc/rc.d/init.d/functions
-@@ -24,27 +25,29 @@ STOP=@sbindir@/pppoe-stop
+@@ -25,29 +24,27 @@ STOP=@sbindir@/pppoe-stop
  STATUS=@sbindir@/pppoe-status
  case "$1" in
      start)
--        echo -n "Bringing up PPPoE link: "
-+        echo -n "Bringing up PPPoE link"
+-        echo -n "Bringing up PPPoE link"
++        echo -n "Bringing up PPPoE link: "
  
  	$START
  	if [ $? = 0 ] ; then
--		echo success
++		echo success
  		touch /var/lock/subsys/pppoe
-+	        echo_success
+-	        echo_success
  	else
--		echo failure
-+		echo_failure
+-		echo_failure
++		echo failure
  	fi
-+        echo ""
+-        echo ""
          ;;
  
      stop)
--        echo -n "Shutting down PPPoE link: "
-+        echo -n "Shutting down PPPoE link"
+-        echo -n "Shutting down PPPoE link"
++        echo -n "Shutting down PPPoE link: "
  
  	$STOP > /dev/null 2>&1
  	if [ $? = 0 ] ; then
--		echo success
++		echo success
  		rm -f /var/lock/subsys/pppoe
-+	        echo_success
+-	        echo_success
  	else
--		echo failure
-+		echo_failure
+-		echo_failure
++		echo failure
  	fi
-+        echo ""
+-        echo ""
          ;;
  
      restart)

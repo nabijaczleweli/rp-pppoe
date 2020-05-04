@@ -1893,7 +1893,7 @@ startPPPDUserMode(ClientSession *session)
     /* Leave some room */
     char *argv[64];
 
-    char buffer[SMALLBUF];
+    char buffer[2 * SMALLBUF];
 
     int c = 0;
 
@@ -1901,7 +1901,7 @@ startPPPDUserMode(ClientSession *session)
     argv[c++] = "pty";
 
     /* Let's hope service-name does not have ' in it... */
-    snprintf(buffer, SMALLBUF, "%s -n -I %s -e %u:%02x:%02x:%02x:%02x:%02x:%02x%s -S '%s'",
+    snprintf(buffer, sizeof(buffer), "%s -n -I %s -e %u:%02x:%02x:%02x:%02x:%02x:%02x%s -S '%s'",
 	     pppoe_path, session->ethif->name,
 	     (unsigned int) ntohs(session->sess),
 	     session->eth[0], session->eth[1], session->eth[2],
@@ -1916,7 +1916,7 @@ startPPPDUserMode(ClientSession *session)
     argv[c++] = "file";
     argv[c++] = pppoptfile;
 
-    snprintf(buffer, SMALLBUF, "%d.%d.%d.%d:%d.%d.%d.%d",
+    snprintf(buffer, sizeof(buffer), "%d.%d.%d.%d:%d.%d.%d.%d",
 	    (int) session->myip[0], (int) session->myip[1],
 	    (int) session->myip[2], (int) session->myip[3],
 	    (int) session->peerip[0], (int) session->peerip[1],

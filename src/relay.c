@@ -212,7 +212,7 @@ usage(char const *argv0)
     fprintf(stderr, "   -F             -- Do not fork into background\n");
     fprintf(stderr, "   -h             -- Print this help message\n");
 
-    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2001-2006 Roaring Penguin Software Inc.\nCopyright 2018-2019 Dianne Skoll.\n", VERSION);
+    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2001-2006 Roaring Penguin Software Inc.\nCopyright 2018-2019 Dianne Skoll.\n", RP_VERSION);
     fprintf(stderr, "PPPoE comes with ABSOLUTELY NO WARRANTY.\n");
     fprintf(stderr, "This is free software, and you are welcome to redistribute it under the terms\n");
     fprintf(stderr, "of the GNU General Public License, version 2 or any later version.\n");
@@ -1110,7 +1110,7 @@ relayHandlePADO(PPPoEInterface const *iface,
 
     acIndex = iface - Interfaces;
 
-    /* Source address must be unicast */
+    /* Source address can't be broadcast */
     if (BROADCAST(packet->ethHdr.h_source)) {
 	syslog(LOG_ERR,
 	       "PADO packet from %02x:%02x:%02x:%02x:%02x:%02x on interface %s from a broadcast address",

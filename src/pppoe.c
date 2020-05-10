@@ -380,11 +380,11 @@ usage(char const *argv0)
 	    "   -f disc:sess   -- Set Ethernet frame types (hex).\n"
 	    "   -h             -- Print usage information.\n\n"
 	    "RP-PPPoE Version %s, Copyright (C) 2001-2018 Roaring Penguin Software Inc.\n"
-	    "                  Copyright (C) 2018 Dianne Skoll\n"
+	    "                 %*s  Copyright (C) 2018 Dianne Skoll\n"
 	    "RP-PPPoE comes with ABSOLUTELY NO WARRANTY.\n"
 	    "This is free software, and you are welcome to redistribute it under the terms\n"
 	    "of the GNU General Public License, version 2 or any later version.\n"
-	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", VERSION);
+	    "https://dianne.skoll.ca/projects/rp-pppoe/\n", RP_VERSION, (int) strlen(RP_VERSION), "");
     exit(EXIT_SUCCESS);
 }
 
@@ -552,7 +552,7 @@ main(int argc, char *argv[])
 			optarg, strerror(errno));
 		exit(EXIT_FAILURE);
 	    }
-	    fprintf(conn.debugFile, "rp-pppoe-%s\n", VERSION);
+	    fprintf(conn.debugFile, "rp-pppoe-%s\n", RP_VERSION);
 	    fflush(conn.debugFile);
 	    break;
 #endif
@@ -577,7 +577,7 @@ main(int argc, char *argv[])
 	    SET_STRING(conn.ifName, optarg);
 	    break;
 	case 'V':
-	    printf("RP-PPPoE Version %s\n", VERSION);
+	    printf("RP-PPPoE Version %s\n", RP_VERSION);
 	    exit(EXIT_SUCCESS);
 	case 'A':
 	    conn.printACNames = 1;

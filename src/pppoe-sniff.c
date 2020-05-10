@@ -123,7 +123,7 @@ usage(char const *argv0)
     fprintf(stderr, "   -I if_name     -- Specify interface (default %s.)\n",
 	    DEFAULT_IF);
     fprintf(stderr, "   -V             -- Print version and exit.\n");
-    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2000 Roaring Penguin Software Inc.\n", VERSION);
+    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2000 Roaring Penguin Software Inc.\n", RP_VERSION);
     fprintf(stderr, "                  Copyright (C) 2018-2019 Dianne Skoll\n");
     fprintf(stderr, "PPPoE comes with ABSOLUTELY NO WARRANTY.\n");
     fprintf(stderr, "This is free software, and you are welcome to redistribute it under the terms\n");
@@ -175,7 +175,7 @@ main(int argc, char *argv[])
 	    SET_STRING(IfName, optarg);
 	    break;
 	case 'V':
-	    printf("pppoe-sniff: RP-PPPoE Version %s\n", VERSION);
+	    printf("pppoe-sniff: RP-PPPoE Version %s\n", RP_VERSION);
 	    exit(0);
 	default:
 	    usage(argv[0]);

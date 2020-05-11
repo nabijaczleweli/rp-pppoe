@@ -1,0 +1,11 @@
+nabijaczleweli@szarotka:~/src/rp-pppoe/gui$ make
+mipsel-linux-gnu-gcc-9 -g -O2 -fno-strict-aliasing -Wall -Wstrict-prototypes  '-DPPPOE_START_PATH="/usr/local/src/rp-pppoe/mips-out/sbin/pppoe-start"' '-DPPPOE_STOP_PATH="/usr/local/src/rp-pppoe/mips-out/sbin/pppoe-stop"' '-DPPPOE_STATUS_PATH="/usr/local/src/rp-pppoe/mips-out/sbin/pppoe-status"' -c -o wrapper.o wrapper.c
+In file included from /usr/mipsel-linux-gnu/include/bits/libc-header-start.h:33,
+                 from /usr/mipsel-linux-gnu/include/stdlib.h:25,
+                 from wrapper.c:21:
+/usr/mipsel-linux-gnu/include/features.h:185:3: warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE" [-Wcpp]
+  185 | # warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+      |   ^~~~~~~
+mipsel-linux-gnu-gcc-9 -o pppoe-wrapper wrapper.o
+
+Type 'make install' as root to install the software.

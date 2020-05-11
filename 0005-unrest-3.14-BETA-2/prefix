@@ -1,0 +1,47 @@
+nabijaczleweli@szarotka:~/src/rp-pppoe/src$ ./configure --host=mipsel-linux-gnu --enable-plugin=/usr/include/pppd --prefix=$(realpath ../mips-out) CC=mipsel-linux-gnu-gcc-9
+
+nabijaczleweli@szarotka:~/src/rp-pppoe/src$ make install
+
+Type 'make install' as root to install the software.
+mkdir -p /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 pppoe /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 pppoe-server /usr/local/src/rp-pppoe/mips-out/sbin
+if test -x licensed-only/pppoe-server-control ; then /bin/install -c -m 755 licensed-only/pppoe-server-control /usr/local/src/rp-pppoe/mips-out/sbin; fi
+if test -x pppoe-relay ; then /bin/install -c -m 755 pppoe-relay /usr/local/src/rp-pppoe/mips-out/sbin; fi
+if test -x pppoe-sniff; then /bin/install -c -m 755 pppoe-sniff /usr/local/src/rp-pppoe/mips-out/sbin; fi
+/bin/install -c -m 755 ../scripts/pppoe-connect /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 ../scripts/pppoe-start /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 ../scripts/pppoe-status /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 ../scripts/pppoe-stop /usr/local/src/rp-pppoe/mips-out/sbin
+/bin/install -c -m 755 ../scripts/pppoe-setup /usr/local/src/rp-pppoe/mips-out/sbin
+mkdir -p /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../doc/CHANGES /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../doc/KERNEL-MODE-PPPOE /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../doc/HOW-TO-CONNECT /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../doc/LICENSE /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../README /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../SERVPOET /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+/bin/install -c -m 644 ../configs/pap-secrets /usr/local/src/rp-pppoe/mips-out/share/doc/rp-pppoe-3.14
+mkdir -p /usr/local/src/rp-pppoe/mips-out/share/man/man8
+for i in pppoe pppoe-server pppoe-sniff pppoe-relay rp-pppoe.so ; do \
+        if test -f ../man/$i.8 ; then \
+                /bin/install -c -m 644 ../man/$i.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8 || exit 1; \
+        fi; \
+done
+/bin/install -c -m 644 ../man/pppoe-start.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8
+/bin/install -c -m 644 ../man/pppoe-stop.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8
+/bin/install -c -m 644 ../man/pppoe-status.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8
+/bin/install -c -m 644 ../man/pppoe-connect.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8
+/bin/install -c -m 644 ../man/pppoe-setup.8 /usr/local/src/rp-pppoe/mips-out/share/man/man8
+mkdir -p /usr/local/src/rp-pppoe/mips-out/share/man/man5
+/bin/install -c -m 644 ../man/pppoe.conf.5 /usr/local/src/rp-pppoe/mips-out/share/man/man5
+mkdir -p /etc/ppp
+mkdir -p /etc/ppp/plugins
+mkdir: cannot create directory ■/etc/ppp/plugins■: Permission denied
+make: [Makefile:187: install] Error 1 (ignored)
+echo "# Directory created by rp-pppoe for kernel-mode plugin" > /etc/ppp/plugins/README
+/bin/sh: 1: cannot create /etc/ppp/plugins/README: Directory nonexistent
+make: [Makefile:188: install] Error 2 (ignored)
+if test -r rp-pppoe.so; then /bin/install -c -m 755 rp-pppoe.so /etc/ppp/plugins; fi
+/bin/install: cannot create regular file '/etc/ppp/plugins': Permission denied
+make: *** [Makefile:189: install] Error 1

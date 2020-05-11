@@ -1,0 +1,12 @@
+nabijaczleweli@szarotka:~/src/rp-pppoe$ sudo pppoe-discovery -I onboard1
+Access-Concentrator: nabtop
+Got a cookie: 23 c1 18 e5 7a 9b c1 ec fd 3e 47 b8 1d 85 96 c6 01 47 00 00
+--------------------------------------------------
+AC-Ethernet-Address: 00:23:8b:10:3d:d6
+nabijaczleweli@szarotka:~/src/rp-pppoe$ sudo ./src/pppoe -I onboard1 -A
+Access-Concentrator: nabtop
+Got a cookie: 23 c1 18 e5 7a 9b c1 ec fd 3e 47 b8 1d 85 96 c6 01 47 00 00
+AC-Ethernet-Address: 00:23:8b:10:3d:d6
+--------------------------------------------------
+nabijaczleweli@szarotka:~/src/rp-pppoe$ sudo ./src/pppoe -I onboard1 -d
+2:00:23:8b:10:3d:d6

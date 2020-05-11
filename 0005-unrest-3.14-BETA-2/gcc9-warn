@@ -1,0 +1,31 @@
+nabijaczleweli@szarotka:~/src/rp-pppoe/src$ gcc -v
+Using built-in specs.
+COLLECT_GCC=gcc
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnux32/9/lto-wrapper
+Target: x86_64-linux-gnux32
+Configured with: ../src/configure -v --with-pkgversion='Debian 9.3.0-12' --with-bugurl=file:///usr/share/doc/gcc-9/README.Bugs --enable-languages=c,ada,c++,go,brig,d,fortran,objc,obj-c++,gm2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-9 --program-prefix=x86_64-linux-gnux32- --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --with-system-zlib --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --with-abi=mx32 --with-multilib-list=mx32,m64,m32 --enable-multilib --enable-checking=release --build=x86_64-linux-gnux32 --host=x86_64-linux-gnux32 --target=x86_64-linux-gnux32 --with-build-config=bootstrap-lto-lean --enable-link-mutex
+Thread model: posix
+if.c: In function ■openInterface■:
+if.c:462:2: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  462 |  strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:484:5: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  484 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:501:5: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  501 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c: In function ■openInterface■:
+if.c:462:2: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  462 |  strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:484:5: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  484 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:501:5: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  501 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+plugin.c: In function ■PPPoEDevnameHook■:
+plugin.c:402:2: warning: ■strncpy■ specified bound 16 equals destination size [-Wstringop-truncation]
+  402 |  strncpy(ifr.ifr_name, cmd, IFNAMSIZ);
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

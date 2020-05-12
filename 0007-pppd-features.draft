@@ -1,0 +1,11 @@
+From наб Sat May 09 02:52:24 2020
+Date: Sat, 09 May 2020 02:52:24 +0200
+Subject: Non-strictly-bugfixes from pppd
+
+
+features:
+  packet printer
+  separate pppoe-discovery program — only required in pppd since they don't ship pppoe; output identical
+  anyname
+  host-uniq
+  pppoe-padi-timeout/pppoe-padi-attempts

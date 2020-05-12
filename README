@@ -8,11 +8,16 @@ Patches in 0001-relevant-3.13/ are a subset of the patches in 0000-all/,
   see 0001-NOTES-3.13 for tags and mapping.
 
 Patches in 0002-pppd-bugfixes-3.13-v1/ correspond to the upstream/3.13..pppd-bugfixes-3.13-v1 commits,
-submitted in https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000576.html and released in 3.14-BETA-1 https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000578.html.
+submitted in https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000576.html and released in 3.14-BETA-1 (https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000578.html).
 
-Patches and diffs in 0003-cosmetic-3.14-BETA-1 are Debian patches and one supplementary diff for some mostly-cosmetic changes based on the 3.14-BETA-1 release.
+Patches and diffs in 0003-cosmetic-3.14-BETA-1/ are Debian patches and one supplementary diff for some mostly-cosmetic changes based on the 3.14-BETA-1 release.
 
 Patches in 0004-mostly-cosmetic-3.14-BETA-1-v1/ correspond to the upstream/3.14-BETA-1..mostly-cosmetic-3.14-BETA-1-v1 commits,
+submitted in https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000579.html and released in 3.14-BETA-2 (https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000582.html).
+
+(Mostly-)errors in 0005-unrest-3.14-BETA-2/ are some more-or-less partial error logs noticed during testing 3.14-BETA-2.
+
+Patches in 0006-touchups-3.14-BETA-2-v1/ correspond to the upstream/3.14-BETA-2..touchups-3.14-BETA-2-v1 commits.
 
 Based on a checkout of git://git.ozlabs.org/~paulus/ppp.git on 2020-05-02 16:32:05 +0200 at 41a73232c16e9a063cfe3fad461c94af3f450f6c.
 

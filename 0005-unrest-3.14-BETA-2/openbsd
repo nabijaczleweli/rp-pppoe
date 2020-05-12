@@ -1,0 +1,264 @@
+Versions tested:
+  * 1.0-1 from Debian potato (2.2), dated 13.1.2000
+  * 3.3, 3.5 (clean tarballs from Debian): build w/o problems
+  * 3.8: fails
+  * 3.12, 3.14-BETA-2+0006-touchups-3.14-BETA-2-v1: fail
+
+
+Error from 3.14-BETA-2 with this patchset, 3.12 fails similarly:
+
+cc -g -O2 -fno-strict-aliasing -Wall -Wstrict-prototypes    '-DPPPOE_PATH="/usr/sbin/pppoe"' '-DPPPD_PATH="/usr/sbin/pppd"'  '-DPLUGIN_PATH="/etc/ppp/plugins/rp-pppoe.so"'  '-DPPPOE_SERVER_OPTIONS="/etc/ppp/pppoe-server-options"' -Ilibevent '-DRP_VERSION="3.14"' -c -o pppoe.o pppoe.c
+In file included from pppoe.c:18:
+In file included from ./pppoe.h:62:
+/usr/include/net/if_ppp.h:108:19: error: use of undeclared identifier 'IFNAMSIZ'
+    char ifr_name[IFNAMSIZ];
+                  ^
+/usr/include/net/if_ppp.h:113:19: error: use of undeclared identifier 'IFNAMSIZ'
+    char ifr_name[IFNAMSIZ];
+                  ^
+In file included from pppoe.c:18:
+./pppoe.h:218:19: error: field has incomplete type 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+                  ^
+./pppoe.h:218:12: note: forward declaration of 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+           ^
+./pppoe.h:71:16: note: expanded from macro 'ethhdr'
+#define ethhdr ether_header
+               ^
+./pppoe.h:223:27: error: use of undeclared identifier 'ETHERMTU'
+    unsigned char payload[ETH_JUMBO_LEN]; /* A bit of room to spare */
+                          ^
+./pppoe.h:214:24: note: expanded from macro 'ETH_JUMBO_LEN'
+#define ETH_JUMBO_LEN (ETH_DATA_LEN+8)
+                       ^
+./pppoe.h:75:22: note: expanded from macro 'ETH_DATA_LEN'
+#define ETH_DATA_LEN ETHERMTU
+                     ^
+./pppoe.h:246:27: error: use of undeclared identifier 'ETHERMTU'
+    unsigned char payload[ETH_JUMBO_LEN]; /* A LOT of room to spare */
+                          ^
+./pppoe.h:214:24: note: expanded from macro 'ETH_JUMBO_LEN'
+#define ETH_JUMBO_LEN (ETH_DATA_LEN+8)
+                       ^
+./pppoe.h:75:22: note: expanded from macro 'ETH_DATA_LEN'
+#define ETH_DATA_LEN ETHERMTU
+                     ^
+./pppoe.h:269:25: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    unsigned char myEth[ETH_ALEN]; /* My MAC address */
+                        ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+./pppoe.h:270:27: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    unsigned char peerEth[ETH_ALEN]; /* Peer's MAC address */
+                          ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:91:61: error: invalid application of 'sizeof' to an incomplete type 'struct ether_header'
+    if (sendPacket(conn, conn->sessionSocket, packet, len + HDR_SIZE) < 0) {
+                                                            ^~~~~~~~
+./pppoe.h:232:19: note: expanded from macro 'HDR_SIZE'
+#define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+                  ^     ~~~~~~~~~~~~~~~
+./pppoe.h:218:12: note: forward declaration of 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+           ^
+./pppoe.h:71:16: note: expanded from macro 'ethhdr'
+#define ethhdr ether_header
+               ^
+pppoe.c:126:1: error: static declaration of 'sessionDiscoveryPacket' follows non-static declaration
+sessionDiscoveryPacket(PPPoEPacket *packet)
+^
+./pppoe.h:68:6: note: previous declaration is here
+void sessionDiscoveryPacket(struct PPPoEPacketStruct *packet);
+     ^
+pppoe.c:138:58: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    if (memcmp(packet->ethHdr.h_dest, Connection->myEth, ETH_ALEN)) {
+                                                         ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:142:62: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    if (memcmp(packet->ethHdr.h_source, Connection->peerEth, ETH_ALEN)) {
+                                                             ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:243:49: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    memcpy(packet.ethHdr.h_dest, conn->peerEth, ETH_ALEN);
+                                                ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:244:49: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    memcpy(packet.ethHdr.h_source, conn->myEth, ETH_ALEN);
+                                                ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:769:32: error: invalid application of 'sizeof' to an incomplete type 'struct ether_header'
+    if (ntohs(packet.length) + HDR_SIZE > len) {
+                               ^~~~~~~~
+./pppoe.h:232:19: note: expanded from macro 'HDR_SIZE'
+#define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+                  ^     ~~~~~~~~~~~~~~~
+./pppoe.h:218:12: note: forward declaration of 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+           ^
+./pppoe.h:71:16: note: expanded from macro 'ethhdr'
+#define ethhdr ether_header
+               ^
+pppoe.c:805:51: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    if (memcmp(packet.ethHdr.h_dest, conn->myEth, ETH_ALEN)) {
+                                                  ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:808:55: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    if (memcmp(packet.ethHdr.h_source, conn->peerEth, ETH_ALEN)) {
+                                                      ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+pppoe.c:820:16: error: invalid application of 'sizeof' to an incomplete type 'struct ether_header'
+    if (plen + HDR_SIZE > len) {
+               ^~~~~~~~
+./pppoe.h:232:19: note: expanded from macro 'HDR_SIZE'
+#define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+                  ^     ~~~~~~~~~~~~~~~
+./pppoe.h:218:12: note: forward declaration of 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+           ^
+./pppoe.h:71:16: note: expanded from macro 'ethhdr'
+#define ethhdr ether_header
+               ^
+pppoe.c:898:32: error: invalid application of 'sizeof' to an incomplete type 'struct ether_header'
+    if (ntohs(packet.length) + HDR_SIZE > len) {
+                               ^~~~~~~~
+./pppoe.h:232:19: note: expanded from macro 'HDR_SIZE'
+#define HDR_SIZE (sizeof(struct ethhdr) + PPPOE_OVERHEAD)
+                  ^     ~~~~~~~~~~~~~~~
+./pppoe.h:218:12: note: forward declaration of 'struct ether_header'
+    struct ethhdr ethHdr;       /* Ethernet header */
+           ^
+./pppoe.h:71:16: note: expanded from macro 'ethhdr'
+#define ethhdr ether_header
+               ^
+pppoe.c:934:51: error: use of undeclared identifier 'ETHER_ADDR_LEN'
+    if (memcmp(packet.ethHdr.h_dest, conn->myEth, ETH_ALEN)) {
+                                                  ^
+./pppoe.h:76:18: note: expanded from macro 'ETH_ALEN'
+#define ETH_ALEN ETHER_ADDR_LEN
+                 ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+*** Error 1 in /root/rp-pppoe/src (Makefile:89 'pppoe.o')
+
+
+Error from 3.8:
+
+cc -g -O2 -Wall -Wstrict-prototypes -ansi    '-DPPPOE_PATH="/usr/sbin/pppoe"' '-DPPPD_PATH="/usr/sbin/pppd"'  '-DPLUGIN_PATH="/etc/ppp/plugins/rp-pppoe.so"'  '-DPPPOE_SERVER_OPTIONS="/etc/ppp/pppoe-server-options"' -Ilibevent '-DVERSION="3.8"' -c -o pppoe.o pppoe.c
+pppoe.c:127:1: error: static declaration of 'sessionDiscoveryPacket' follows
+      non-static declaration
+sessionDiscoveryPacket(PPPoEPacket *packet)
+^
+./pppoe.h:78:6: note: previous declaration is here
+void sessionDiscoveryPacket(struct PPPoEPacketStruct *packet);
+     ^
+1 error generated.
+*** Error 1 in /root/rp-pppoe-3.8/src (Makefile:82 'pppoe.o')
+
+1.0-1 from Debian potato (2.2):
+
+cc -Wall -pedantic -ansi -O2  -D_POSIX_SOURCE=1 '-DVERSION="1.0"' -c -o pppoe.o pppoe.c
+In file included from pppoe.c:17:
+In file included from ./pppoe.h:21:
+/usr/include/netinet/if_ether.h:71:2: error: unknown type name 'u_int8_t'
+        u_int8_t ether_addr_octet[ETHER_ADDR_LEN];
+        ^
+/usr/include/netinet/if_ether.h:78:2: error: unknown type name 'u_int8_t'
+        u_int8_t  ether_dhost[ETHER_ADDR_LEN];
+        ^
+/usr/include/netinet/if_ether.h:79:2: error: unknown type name 'u_int8_t'
+        u_int8_t  ether_shost[ETHER_ADDR_LEN];
+        ^
+/usr/include/netinet/if_ether.h:80:2: error: unknown type name 'u_int16_t'; did
+      you mean '__int128_t'?
+        u_int16_t ether_type;
+        ^
+note: '__int128_t' declared here
+/usr/include/netinet/if_ether.h:88:9: error: unknown type name 'u_char'; did you
+      mean 'char'?
+        u_char  evl_dhost[ETHER_ADDR_LEN];
+        ^
+/usr/include/netinet/if_ether.h:89:9: error: unknown type name 'u_char'; did you
+      mean 'char'?
+        u_char  evl_shost[ETHER_ADDR_LEN];
+        ^
+/usr/include/netinet/if_ether.h:90:9: error: unknown type name 'u_int16_t'; did
+      you mean '__int128_t'?
+        u_int16_t evl_encap_proto;
+        ^
+note: '__int128_t' declared here
+/usr/include/netinet/if_ether.h:91:9: error: unknown type name 'u_int16_t'; did
+      you mean '__int128_t'?
+        u_int16_t evl_tag;
+        ^
+note: '__int128_t' declared here
+/usr/include/netinet/if_ether.h:92:9: error: unknown type name 'u_int16_t'; did
+      you mean '__int128_t'?
+        u_int16_t evl_proto;
+        ^
+note: '__int128_t' declared here
+/usr/include/netinet/if_ether.h:136:17: error: field has incomplete type
+      'struct arphdr'
+        struct   arphdr ea_hdr;                 /* fixed-size header */
+                        ^
+/usr/include/netinet/if_ether.h:136:10: note: forward declaration of
+      'struct arphdr'
+        struct   arphdr ea_hdr;                 /* fixed-size header */
+                 ^
+/usr/include/netinet/if_ether.h:137:2: error: unknown type name 'u_int8_t'
+        u_int8_t arp_sha[ETHER_ADDR_LEN];       /* sender hardware address */
+        ^
+/usr/include/netinet/if_ether.h:138:2: error: unknown type name 'u_int8_t'
+        u_int8_t arp_spa[4];                    /* sender protocol address */
+        ^
+/usr/include/netinet/if_ether.h:139:2: error: unknown type name 'u_int8_t'
+        u_int8_t arp_tha[ETHER_ADDR_LEN];       /* target hardware address */
+        ^
+/usr/include/netinet/if_ether.h:140:2: error: unknown type name 'u_int8_t'
+        u_int8_t arp_tpa[4];                    /* target protocol address */
+        ^
+/usr/include/netinet/if_ether.h:149:2: error: unknown type name 'u_int8_t'
+        u_int8_t  sin_len;
+        ^
+/usr/include/netinet/if_ether.h:150:2: error: unknown type name 'u_int8_t'
+        u_int8_t  sin_family;
+        ^
+/usr/include/netinet/if_ether.h:151:2: error: unknown type name 'u_int16_t'; did
+      you mean '__int128_t'?
+        u_int16_t sin_port;
+        ^
+note: '__int128_t' declared here
+/usr/include/netinet/if_ether.h:152:19: error: field has incomplete type
+      'struct in_addr'
+        struct    in_addr sin_addr;
+                          ^
+/usr/include/netinet/if_ether.h:152:11: note: forward declaration of
+      'struct in_addr'
+        struct    in_addr sin_addr;
+                  ^
+/usr/include/netinet/if_ether.h:153:19: error: field has incomplete type
+      'struct in_addr'
+        struct    in_addr sin_srcaddr;
+                          ^
+/usr/include/netinet/if_ether.h:152:11: note: forward declaration of
+      'struct in_addr'
+        struct    in_addr sin_addr;
+                  ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+*** Error 1 in /root/rp-pppoe-1.0 (Makefile:28 'pppoe.o')

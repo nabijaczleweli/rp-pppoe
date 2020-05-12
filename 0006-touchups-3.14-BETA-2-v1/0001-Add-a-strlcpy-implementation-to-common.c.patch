@@ -1,0 +1,116 @@
+From 97a0c597709abecf077109c5ea6d7787417f3bd6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=D0=BD=D0=B0=D0=B1?= <nabijaczleweli@gmail.com>
+Date: Tue, 12 May 2020 16:13:51 +0200
+Subject: [PATCH 1/4] Add a strlcpy() implementation to common.c
+
+Modelled after original OpenBSD and NetBSD-current
+---
+ src/common.c     | 36 ++++++++++++++++++++++++++++++++++++
+ src/config.h.in  |  3 +++
+ src/configure    |  2 +-
+ src/configure.in |  2 +-
+ src/pppoe.h      |  4 ++++
+ 5 files changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/src/common.c b/src/common.c
+index 4f21981..4797fbd 100644
+--- a/src/common.c
++++ b/src/common.c
+@@ -622,3 +622,39 @@ parseLogErrs(UINT16_t type, UINT16_t len, unsigned char *data,
+ {
+     pktLogErrs("PADT", type, len, data, extra);
+ }
++
++#ifndef HAVE_STRLCPY
++/**********************************************************************
++*%FUNCTION: strlcpy
++*%ARGUMENTS:
++* dst -- destination buffer
++* src -- source string
++* size -- size of destination buffer
++*%RETURNS:
++* Amount of characters copied, excluding NUL terminator
++*%DESCRIPTION:
++* Copy at most size-1 characters from src to dst,
++* always NUL-terminating dst if size!=0.
++***********************************************************************/
++size_t
++strlcpy(char *dst, const char *src, size_t size)
++{
++    const char *orig_src = src;
++
++    if (size == 0) {
++	return 0;
++    }
++
++    while (--size != 0) {
++	if ((*dst++ = *src++) == '\0') {
++	    break;
++	}
++    }
++
++    if (size == 0) {
++	*dst = '\0';
++    }
++
++    return src - orig_src - 1;
++}
++#endif
+diff --git a/src/config.h.in b/src/config.h.in
+index d0050bf..4ad5806 100644
+--- a/src/config.h.in
++++ b/src/config.h.in
+@@ -50,6 +50,9 @@
+ /* Define if you have the strtol function.  */
+ #undef HAVE_STRTOL
+ 
++/* Define if you have the strlcpy function.  */
++#undef HAVE_STRLCPY
++
+ /* Define if you have the <asm/types.h> header file.  */
+ #undef HAVE_ASM_TYPES_H
+ 
+diff --git a/src/configure b/src/configure
+index 063e57d..cc00c38 100755
+--- a/src/configure
++++ b/src/configure
+@@ -4140,7 +4140,7 @@ cat >>confdefs.h <<_ACEOF
+ _ACEOF
+ 
+ 
+-for ac_func in select socket strerror strtol
++for ac_func in select socket strerror strtol strlcpy
+ do :
+   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+diff --git a/src/configure.in b/src/configure.in
+index 5882074..54b924e 100644
+--- a/src/configure.in
++++ b/src/configure.in
+@@ -134,7 +134,7 @@ dnl Checks for library functions.
+ AC_FUNC_MEMCMP
+ AC_FUNC_SETVBUF_REVERSED
+ AC_TYPE_SIGNAL
+-AC_CHECK_FUNCS(select socket strerror strtol)
++AC_CHECK_FUNCS(select socket strerror strtol strlcpy)
+ AC_PROG_INSTALL
+ 
+ dnl Integer sizes
+diff --git a/src/pppoe.h b/src/pppoe.h
+index b9f760c..e13af7a 100644
+--- a/src/pppoe.h
++++ b/src/pppoe.h
+@@ -339,6 +339,10 @@ void discovery(PPPoEConnection *conn);
+ unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
+ 		       PPPoETag *tag);
+ 
++#ifndef HAVE_STRLCPY
++size_t strlcpy(char *dst, const char *src, size_t size);
++#endif
++
+ #define SET_STRING(var, val) do { if (var) free(var); var = strdup(val); if (!var) rp_fatal("strdup failed"); } while(0);
+ 
+ #define CHECK_ROOM(cursor, start, len) \
+-- 
+2.20.1
+

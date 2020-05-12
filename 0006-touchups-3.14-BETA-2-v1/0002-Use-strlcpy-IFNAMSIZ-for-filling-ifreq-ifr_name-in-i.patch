@@ -1,0 +1,129 @@
+From 26c74358d4b6f8654bab7ba29b700656d9ddf2a2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=D0=BD=D0=B0=D0=B1?= <nabijaczleweli@gmail.com>
+Date: Tue, 12 May 2020 21:27:32 +0200
+Subject: [PATCH 2/4] Use strlcpy(IFNAMSIZ) for filling ifreq::ifr_name in if.c
+ and plugin.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Also one instance of strncpy() being used like strlcpy() in if.c
+
+This caused a few warnings on gcc 9.3.0-12:
+if.c: In function ■openInterface■:
+if.c:462:2: warning: ■strncpy■ specified bound 16 equals destination
+size [-Wstringop-truncation]
+  462 |  strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:484:5: warning: ■strncpy■ specified bound 16 equals destination
+size [-Wstringop-truncation]
+  484 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+if.c:501:5: warning: ■strncpy■ specified bound 16 equals destination
+size [-Wstringop-truncation]
+  501 |     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+plugin.c: In function ■PPPoEDevnameHook■:
+plugin.c:402:2: warning: ■strncpy■ specified bound 16 equals destination
+size [-Wstringop-truncation]
+  402 |  strncpy(ifr.ifr_name, cmd, IFNAMSIZ);
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---
+ src/if.c     | 17 ++++++++---------
+ src/plugin.c |  2 +-
+ 2 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/src/if.c b/src/if.c
+index 7f9ba51..c24c9dc 100644
+--- a/src/if.c
++++ b/src/if.c
+@@ -326,7 +326,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     /* Check that the interface is up */
+-    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCGIFFLAGS)");
+     }
+@@ -345,7 +345,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+ 
+     /* Sanity check on MTU -- apparently does not work on OpenBSD */
+ #if !defined(__OpenBSD__)
+-    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(sock, SIOCGIFMTU, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCGIFMTU)");
+     }
+@@ -390,7 +390,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     /* Bind the interface to the filter */
+-    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, BIOCSETIF, &ifr) < 0) {
+ 	char buffer[256];
+ 	sprintf(buffer, "ioctl(BIOCSETIF) can't select interface %.16s",
+@@ -459,7 +459,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr, UINT16_t
+ 
+     /* Fill in hardware address */
+     if (hwaddr) {
+-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++	strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+ 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
+ 	    fatalSys("ioctl(SIOCGIFHWADDR)");
+ 	}
+@@ -481,7 +481,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr, UINT16_t
+     }
+ 
+     /* Sanity check on MTU */
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, SIOCGIFMTU, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCGIFMTU)");
+     }
+@@ -498,7 +498,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr, UINT16_t
+     sa.sll_family = AF_PACKET;
+     sa.sll_protocol = htons(type);
+ 
+-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
++    strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+     if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+ 	fatalSys("ioctl(SIOCFIGINDEX): Could not get interface index");
+     }
+@@ -717,7 +717,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     int fd;
+     long buf[MAXDLBUF];
+ 
+-	union   DL_primitives   *dlp;
++    union   DL_primitives   *dlp;
+ 
+     char base_dev[PATH_MAX];
+     int ppa;
+@@ -731,8 +731,7 @@ openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr)
+     }
+ 
+     ppa = atoi(&ifname[strlen(ifname)-1]);
+-    strncpy(base_dev, ifname, PATH_MAX);
+-    base_dev[strlen(base_dev)-1] = '\0';
++    strlcpy(base_dev, ifname, PATH_MAX);
+ 
+ /* rearranged order of DLPI code - delphys 20010803 */
+     dlp = (union DL_primitives*) buf;
+diff --git a/src/plugin.c b/src/plugin.c
+index 7c087e8..64577a7 100644
+--- a/src/plugin.c
++++ b/src/plugin.c
+@@ -399,7 +399,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
+ 
+     /* Try getting interface index */
+     if (r) {
+-	strncpy(ifr.ifr_name, cmd, IFNAMSIZ);
++	strlcpy(ifr.ifr_name, cmd, IFNAMSIZ);
+ 	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+ 	    r = 0;
+ 	} else {
+-- 
+2.20.1
+

@@ -143,16 +143,16 @@ plugin/libplugin.a: plugin/discovery.o plugin/if.o plugin/common.o plugin/debug.
 	ar -rc $@ $^
 
 plugin/discovery.o: discovery.c
-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -c -o $@ -fPIC $<
+	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
 
 plugin/if.o: if.c
-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -c -o $@ -fPIC $<
+	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
 
 plugin/debug.o: debug.c
-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -c -o $@ -fPIC $<
+	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
 
 plugin/common.o: common.c
-	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -c -o $@ -fPIC $<
+	@CC@ -DPLUGIN=1 $(CFLAGS) '-DRP_VERSION="$(RP_VERSION)"' -I$(PPPD_INCDIR) -c -o $@ -fPIC $<
 
 install: all
 	-mkdir -p $(DESTDIR)$(sbindir)

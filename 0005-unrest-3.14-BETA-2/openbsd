@@ -1,5 +1,5 @@
 Versions tested:
-  * 1.0-1 from Debian potato (2.2), dated 13.1.2000
+  * 1.0-1 from Debian potato (2.2), dated 13.1.2000: failed (rather surprisingly)
   * 3.3, 3.5 (clean tarballs from Debian): build w/o problems
   * 3.8: fails
   * 3.12, 3.14-BETA-2+0006-touchups-3.14-BETA-2-v1: fail
@@ -169,6 +169,7 @@ void sessionDiscoveryPacket(struct PPPoEPacketStruct *packet);
      ^
 1 error generated.
 *** Error 1 in /root/rp-pppoe-3.8/src (Makefile:82 'pppoe.o')
+
 
 1.0-1 from Debian potato (2.2):
 

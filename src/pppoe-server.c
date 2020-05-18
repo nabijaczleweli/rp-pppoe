@@ -145,6 +145,9 @@ static char *pppoptfile = NULL;
 static char *pppd_path = PPPD_PATH;
 static char *pppoe_path = PPPOE_PATH;
 
+static char *motd_string = NULL;
+static char *hurl_string = NULL;
+
 static int Debug = 0;
 static int CheckPoolSyntax = 0;
 
@@ -852,6 +855,10 @@ processPADR(Interface *ethif, PPPoEPacket *packet, int len)
     int slen = 0;
     char const *serviceName = NULL;
 
+    /* Temporary structure for sending PADM's. */
+    PPPoEConnection conn;
+
+
 #ifdef HAVE_LICENSE
     int freemem;
 #endif
@@ -1083,6 +1090,19 @@ processPADR(Interface *ethif, PPPoEPacket *packet, int len)
     pads.length = htons(plen);
     sendPacket(NULL, sock, &pads, (int) (plen + HDR_SIZE));
 
+    if (hurl_string || motd_string) {
+	memset(&conn, 0, sizeof(conn));
+	conn.hostUniq = NULL;
+
+	memcpy(conn.myEth, cliSession->ethif->mac, ETH_ALEN);
+	conn.discoverySocket = sock;
+	conn.session = cliSession->sess;
+	memcpy(conn.peerEth, cliSession->eth, ETH_ALEN);
+	if (hurl_string != NULL)
+	    sendHURLorMOTM(&conn, hurl_string, TAG_HURL);
+	if (motd_string != NULL)
+	    sendHURLorMOTM(&conn, motd_string, TAG_MOTM);
+    }
     /* Close sock; don't need it any more */
     close(sock);
 
@@ -1202,9 +1222,9 @@ main(int argc, char **argv)
 #endif
 
 #ifndef HAVE_LINUX_KERNEL_PPPOE
-    char *options = "X:ix:hI:C:L:R:T:m:FN:f:O:o:sp:lrudPc:S:1q:Q:";
+    char *options = "X:ix:hI:C:L:R:T:m:FN:f:O:o:sp:lrudPc:S:1q:Q:H:M:";
 #else
-    char *options = "X:ix:hI:C:L:R:T:m:FN:f:O:o:skp:lrudPc:S:1q:Q:";
+    char *options = "X:ix:hI:C:L:R:T:m:FN:f:O:o:skp:lrudPc:S:1q:Q:H:M:";
 #endif
 
     if (getuid() != geteuid() ||
@@ -1272,6 +1292,29 @@ main(int argc, char **argv)
 	    }
 	    break;
 
+	case 'M':
+	    if (motd_string) {
+		free(motd_string);
+		motd_string = NULL;
+	    }
+	    motd_string = strdup(optarg);
+	    if (!motd_string) {
+		fprintf(stderr, "Out of memory");
+		exit(1);
+	    }
+	    break;
+
+	case 'H':
+	    if (hurl_string) {
+		free(hurl_string);
+		hurl_string = NULL;
+	    }
+	    hurl_string = strdup(optarg);
+	    if (!hurl_string) {
+		fprintf(stderr, "Out of memory");
+		exit(1);
+	    }
+	    break;
 	case 'c':
 #ifndef HAVE_LICENSE
 	    fprintf(stderr, "Clustering capability not available.\n");
@@ -2310,8 +2353,8 @@ sendHURLorMOTM(PPPoEConnection *conn, char const *url, UINT16_t tag)
     if (conn->discoverySocket < 0) return;
 
     if (tag == TAG_HURL) {
-	if (strncmp(url, "http://", 7)) {
-	    syslog(LOG_WARNING, "sendHURL(%s): URL must begin with http://", url);
+	if (strncmp(url, "http://", 7) && strncmp(url, "https://", 8)) {
+	    syslog(LOG_WARNING, "sendHURL(%s): URL must begin with http:// or https://", url);
 	    return;
 	}
     } else {

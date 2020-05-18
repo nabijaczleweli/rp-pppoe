@@ -399,7 +399,7 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
 
     /* Try getting interface index */
     if (r) {
-	strncpy(ifr.ifr_name, cmd, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, cmd, IFNAMSIZ);
 	if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
 	    r = 0;
 	} else {

@@ -4,9 +4,16 @@ Changes from version 3.13 to 3.14:
 
 - Delete scripts/pppoe-init-turbolinux.in - TurboLinux is defunct.
 
+- pppoe-server: Add -H and -M options for sending HURL and MOTM packets
+  respectively.
+
 - Change VERSION macro to RP_VERSION to avoid conflict with pppd macro.
 
-- Apply all the patches at
+- Apply all of the patches at
+  https://github.com/nabijaczleweli/rp-pppoe/tree/patches/0006-touchups-3.14-BETA-2-v1
+  which fix up various compile-time warnings.
+
+- Apply all of the patches at
   https://github.com/nabijaczleweli/rp-pppoe/tree/patches/0004-mostly-cosmetic-3.14-BETA-1-v1
   which implement the following 6 changes:
 

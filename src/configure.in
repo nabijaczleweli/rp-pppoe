@@ -134,7 +134,7 @@ dnl Checks for library functions.
 AC_FUNC_MEMCMP
 AC_FUNC_SETVBUF_REVERSED
 AC_TYPE_SIGNAL
-AC_CHECK_FUNCS(select socket strerror strtol)
+AC_CHECK_FUNCS(select socket strerror strtol strlcpy)
 AC_PROG_INSTALL
 
 dnl Integer sizes

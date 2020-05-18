@@ -101,6 +101,17 @@ Allows at most \fInum\fR concurrent PPPoE sessions.  If not specified,
 the default is 64.
 
 .TP
+.B \-M \fIstring\fR
+Sends \fIstring\fR in a MOTM tag in a PADM packet right after sending
+the PADS to a client.
+
+.TP
+.B \-H \fIurl\fR
+Sends \fIurl\fR in a HURL tag in a PADM packet right after sending the
+PADS to a client.  Note that \fIurl\fR must start with either
+\fBhttp://\fR or \fBhttps://\fR.
+
+.TP
 .B \-O \fIfname\fR
 This option causes \fBpppoe-server\fR to tell \fBpppd\fR to use the option
 file \fIfname\fR instead of the default \fI/etc/ppp/pppoe-server-options\fR.

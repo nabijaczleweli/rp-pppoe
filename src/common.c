@@ -622,3 +622,39 @@ parseLogErrs(UINT16_t type, UINT16_t len, unsigned char *data,
 {
     pktLogErrs("PADT", type, len, data, extra);
 }
+
+#ifndef HAVE_STRLCPY
+/**********************************************************************
+*%FUNCTION: strlcpy
+*%ARGUMENTS:
+* dst -- destination buffer
+* src -- source string
+* size -- size of destination buffer
+*%RETURNS:
+* Number of characters copied, excluding NUL terminator
+*%DESCRIPTION:
+* Copy at most size-1 characters from src to dst,
+* always NUL-terminating dst if size!=0.
+***********************************************************************/
+size_t
+strlcpy(char *dst, const char *src, size_t size)
+{
+    const char *orig_src = src;
+
+    if (size == 0) {
+	return 0;
+    }
+
+    while (--size != 0) {
+	if ((*dst++ = *src++) == '\0') {
+	    break;
+	}
+    }
+
+    if (size == 0) {
+	*dst = '\0';
+    }
+
+    return src - orig_src - 1;
+}
+#endif

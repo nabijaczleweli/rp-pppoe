@@ -178,24 +178,29 @@ sessionDiscoveryPacket(PPPoEConnection *conn)
 	return;
     }
 
-    if (packet.code != CODE_PADT) {
-	/* Not PADT; ignore it */
-	return;
-    }
-
-    /* It's a PADT, all right.  Is it for us? */
+    /* Is it for our session? */
     if (packet.session != conn->session) {
 	/* Nope, ignore it */
 	return;
     }
 
+    /* Is it for our Ethernet interface? */
     if (memcmp(packet.ethHdr.h_dest, conn->myEth, ETH_ALEN)) {
+	/* Nope, ignore it */
 	return;
     }
 
+    /* Is it from our peer's Ethernet interface? */
     if (memcmp(packet.ethHdr.h_source, conn->peerEth, ETH_ALEN)) {
+	/* Nope, ignore it */
 	return;
     }
+
+    if (packet.code != CODE_PADT) {
+	/* Not PADT; ignore it */
+	return;
+    }
+
 #ifdef DEBUGGING_ENABLED
     if (conn->debugFile) {
 	dumpPacket(conn->debugFile, &packet, "RCVD");

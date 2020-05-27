@@ -5,7 +5,7 @@
 * Implementation of PPPoE relay
 *
 * Copyright (C) 2001-2018 Roaring Penguin Software Inc.
-* Copyright (C) 2018 Dianne Skoll
+* Copyright (C) 2018-2020 Dianne Skoll
 *
 * This program may be distributed according to the terms of the GNU
 * General Public License, version 2 or (at your option) any later version.
@@ -212,7 +212,8 @@ usage(char const *argv0)
     fprintf(stderr, "   -F             -- Do not fork into background\n");
     fprintf(stderr, "   -h             -- Print this help message\n");
 
-    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2001-2006 Roaring Penguin Software Inc.\nCopyright 2018-2019 Dianne Skoll.\n", RP_VERSION);
+    fprintf(stderr, "\nPPPoE Version %s, Copyright (C) 2001-2006 Roaring Penguin Software Inc.\n", RP_VERSION);
+    fprintf(stderr, "              %*s  Copyright (C) 2018-2020 Dianne Skoll\n", (int) strlen(RP_VERSION), "");
     fprintf(stderr, "PPPoE comes with ABSOLUTELY NO WARRANTY.\n");
     fprintf(stderr, "This is free software, and you are welcome to redistribute it under the terms\n");
     fprintf(stderr, "of the GNU General Public License, version 2 or any later version.\n");

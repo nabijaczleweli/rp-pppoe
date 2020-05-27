@@ -2,6 +2,8 @@
 
 Changes from version 3.13 to 3.14:
 
+- Release 3.14 (2020-05-26)
+
 - Delete scripts/pppoe-init-turbolinux.in - TurboLinux is defunct.
 
 - pppoe-server: Add -H and -M options for sending HURL and MOTM packets

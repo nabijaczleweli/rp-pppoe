@@ -1,4 +1,4 @@
-From 8070578d66d7f583ca2a463104950345d1ad185e Mon Sep 17 00:00:00 2001
+From e5ba067ac50df60ea03faf6201ba3e35cf390b82 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=D0=BD=D0=B0=D0=B1?= <nabijaczleweli@nabijaczleweli.xyz>
 Date: Sun, 20 Dec 2020 15:51:33 +0100
 Subject: [PATCH 3/3] Add rp_pppoe_padi_{timeout,attempts} to override default
@@ -53,7 +53,7 @@ index d917aba..e9a941b 100644
  	    if (persist) {
  		padrAttempts = 0;
 diff --git a/src/plugin.c b/src/plugin.c
-index 9779370..5eee64c 100644
+index a37afe0..2504b45 100644
 --- a/src/plugin.c
 +++ b/src/plugin.c
 @@ -76,6 +76,8 @@ static char *acName = NULL;

@@ -1,4 +1,4 @@
-From 0e42433c4c94e7368c0697d2db9ceec50d312db5 Mon Sep 17 00:00:00 2001
+From c739ce36bca202c10ecb91af5cc0df6afda6e768 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=D0=BD=D0=B0=D0=B1?= <nabijaczleweli@nabijaczleweli.xyz>
 Date: Sun, 20 Dec 2020 15:40:12 +0100
 Subject: [PATCH 2/3] Handle "rp_pppoe_host_uniq" option in pppd plugin taking
@@ -223,7 +223,7 @@ index 9c25362..d917aba 100644
  	plen += len + TAG_HDR_SIZE;
      }
 diff --git a/src/plugin.c b/src/plugin.c
-index d08cbac..9779370 100644
+index d08cbac..a37afe0 100644
 --- a/src/plugin.c
 +++ b/src/plugin.c
 @@ -75,6 +75,7 @@ char *pppd_pppoe_service = NULL;
@@ -261,12 +261,12 @@ index d08cbac..9779370 100644
  
 +    if (host_uniq) {
 +	if (!parseHostUniq(host_uniq, &conn->hostUniq))
-+	    fatal("Illegal value for host-uniq option");
++	    fatal("Illegal value for rp_pppoe_host_uniq option");
 +    } else {
 +	conn->hostUniq.type = htons(TAG_HOST_UNIQ);
 +	conn->hostUniq.length =
-+	    snprintf((char *) conn->hostUniq.payload, sizeof(conn->hostUniq.payload),
-+		"%lx", (unsigned long) getpid());
++	    htons(snprintf((char *) conn->hostUniq.payload, sizeof(conn->hostUniq.payload),
++		"%lx", (unsigned long) getpid()));
 +    }
 +
      /* Open session socket before discovery phase, to avoid losing session */

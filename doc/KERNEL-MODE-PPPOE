@@ -96,6 +96,10 @@ rp_pppoe_mac aa:bb:cc:dd:ee:ff -- only accept PADOs from specified MAC address
 rp_pppoe_host_uniq 01aabbccdd  -- Use decoded hex-string 01aabbccdd as host-uniq
                                 value instead of stringified PID
 
+rp_pppoe_padi_timeout  5       -- Specify initial timeout for discovery packets
+                                in seconds
+rp_pppoe_padi_attempts 3       -- Specify number of discovery attempts
+
 The kernel-mode PPPoE plugin permits an MTU of up to 1500 on the PPP
 interface providing that the MTU on the underlying Ethernet interface
 is at least 1508.  In /etc/ppp/pppoe.conf, set MTU=1500 and MRU=1500 to

@@ -289,6 +289,7 @@ typedef struct PPPoEConnectionStruct {
     PPPoETag relayId;		/* Ditto */
     int PADSHadError;           /* If PADS had an error tag */
     int discoveryTimeout;       /* Timeout for discovery packets */
+    int discoveryAttempts;      /* Max times to attempt discovery */
 #ifdef PLUGIN
     int seenMaxPayload;
     int mtu;

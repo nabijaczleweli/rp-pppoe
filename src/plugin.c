@@ -76,6 +76,8 @@ static char *acName = NULL;
 static char *existingSession = NULL;
 static int printACNames = 0;
 static char *host_uniq = NULL;
+static int pppoe_padi_timeout = PADI_TIMEOUT;
+static int pppoe_padi_attempts = MAX_PADI_ATTEMPTS;
 
 static int PPPoEDevnameHook(char *cmd, char **argv, int doit);
 static option_t Options[] = {
@@ -95,6 +97,10 @@ static option_t Options[] = {
       "Only connect to specified MAC address" },
     { "rp_pppoe_host_uniq", o_string, &host_uniq,
       "Set Host-Uniq to the supplied hex string" },
+    { "rp_pppoe_padi_timeout", o_int, &pppoe_padi_timeout,
+      "Initial timeout for discovery packets in seconds" },
+    { "rp_pppoe_padi_attempts", o_int, &pppoe_padi_attempts,
+      "Number of discovery attempts" },
     { NULL }
 };
 
@@ -132,7 +138,8 @@ PPPOEInitDevice(void)
     conn->discoverySocket = -1;
     conn->sessionSocket = -1;
     conn->printACNames = printACNames;
-    conn->discoveryTimeout = PADI_TIMEOUT;
+    conn->discoveryTimeout = pppoe_padi_timeout;
+    conn->discoveryAttempts = pppoe_padi_attempts;
     return 1;
 }
 

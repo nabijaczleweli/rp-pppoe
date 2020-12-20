@@ -743,7 +743,7 @@ discovery(PPPoEConnection *conn)
     padiAttempts = 0;
     do {
 	padiAttempts++;
-	if (padiAttempts > MAX_PADI_ATTEMPTS) {
+	if (padiAttempts > conn->discoveryAttempts) {
 	    printErr("Timeout waiting for PADO packets");
 	    if (persist) {
 		padiAttempts = 0;
@@ -776,7 +776,7 @@ discovery(PPPoEConnection *conn)
     padrAttempts = 0;
     do {
 	padrAttempts++;
-	if (padrAttempts > MAX_PADI_ATTEMPTS) {
+	if (padrAttempts > conn->discoveryAttempts) {
 	    printErr("Timeout waiting for PADS packets");
 	    if (persist) {
 		padrAttempts = 0;

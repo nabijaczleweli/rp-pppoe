@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -490,14 +491,9 @@ sendPADT(PPPoEConnection *conn, char const *msg)
     conn->session = 0;
 
     /* If we're using Host-Uniq, copy it over */
-    if (conn->hostUniq) {
-	PPPoETag hostUniq;
-	int len = (int) strlen(conn->hostUniq);
-	hostUniq.type = htons(TAG_HOST_UNIQ);
-	hostUniq.length = htons(len);
-	memcpy(hostUniq.payload, conn->hostUniq, len);
-	CHECK_ROOM(cursor, packet.payload, len + TAG_HDR_SIZE);
-	memcpy(cursor, &hostUniq, len + TAG_HDR_SIZE);
+    if (conn->hostUniq.length) {
+	unsigned len = ntohs(conn->hostUniq.length);
+	memcpy(cursor, &conn->hostUniq, len + TAG_HDR_SIZE);
 	cursor += len + TAG_HDR_SIZE;
 	plen += len + TAG_HDR_SIZE;
     }
@@ -621,6 +617,35 @@ parseLogErrs(UINT16_t type, UINT16_t len, unsigned char *data,
 	     void *extra)
 {
     pktLogErrs("PADT", type, len, data, extra);
+}
+
+int
+parseHostUniq(const char *uniq, PPPoETag *tag)
+{
+    size_t i, len = strlen(uniq);
+
+    if (!len || len % 2 || len / 2 > sizeof(tag->payload)) {
+	return 0;
+    }
+
+#define hex(x) \
+    (((x) <= '9') ? ((x) - '0') : \
+	(((x) <= 'F') ? ((x) - 'A' + 10) : \
+	    ((x) - 'a' + 10)))
+
+    for (i = 0; i < len; i += 2) {
+	if (!isxdigit(uniq[i]) || !isxdigit(uniq[i+1])) {
+	    return 0;
+	}
+
+	tag->payload[i / 2] = (char)(hex(uniq[i]) << 4 | hex(uniq[i+1]));
+    }
+
+#undef hex
+
+    tag->type = htons(TAG_HOST_UNIQ);
+    tag->length = htons(len / 2);
+    return 1;
 }
 
 #ifndef HAVE_STRLCPY

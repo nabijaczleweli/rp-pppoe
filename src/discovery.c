@@ -51,12 +51,6 @@
 int persist = 0;
 #endif
 
-/* Structure used by parseForHostUniq */
-struct HostUniqInfo {
-    char *hostUniq;
-    int forMe;
-};
-
 /* Calculate time remaining until *expire_at into *tv, returns 0 if now >= *expire_at */
 static int
 time_left(struct timeval *tv, struct timeval *expire_at)
@@ -92,22 +86,21 @@ time_left(struct timeval *tv, struct timeval *expire_at)
 * len -- tag length
 * data -- tag data.
 * extra -- user-supplied pointer.  This is assumed to be a pointer to a
-*          HostUniqInfo structure
+*          PPPoETag structure
 *%RETURNS:
 * Nothing
 *%DESCRIPTION:
-* If a HostUnique tag is found which matches our PID, sets *extra to 1.
+* If a HostUnique tag is found which matches our host identification
+* (the PID by default), sets ((PPPoETag *)extra)->length to 0.
 ***********************************************************************/
 static void
 parseForHostUniq(UINT16_t type, UINT16_t len, unsigned char *data,
 		 void *extra)
 {
-    struct HostUniqInfo *hi = (struct HostUniqInfo *) extra;
-    if (!hi->hostUniq) return;
+    PPPoETag *tag = extra;
 
-    if (type == TAG_HOST_UNIQ && len == strlen(hi->hostUniq) && !memcmp(data, hi->hostUniq, len)) {
-	hi->forMe = 1;
-    }
+    if (type == TAG_HOST_UNIQ && len == ntohs(tag->length))
+	tag->length = memcmp(data, tag->payload, len);
 }
 
 /**********************************************************************
@@ -124,18 +117,16 @@ parseForHostUniq(UINT16_t type, UINT16_t len, unsigned char *data,
 static int
 packetIsForMe(PPPoEConnection *conn, PPPoEPacket *packet)
 {
-    struct HostUniqInfo hi;
+    PPPoETag hostUniq = conn->hostUniq;
 
     /* If packet is not directed to our MAC address, forget it */
     if (memcmp(packet->ethHdr.h_dest, conn->myEth, ETH_ALEN)) return 0;
 
     /* If we're not using the Host-Unique tag, then accept the packet */
-    if (!conn->hostUniq) return 1;
+    if (!conn->hostUniq.length) return 1;
 
-    hi.hostUniq = conn->hostUniq;
-    hi.forMe = 0;
-    parsePacket(packet, parseForHostUniq, &hi);
-    return hi.forMe;
+    parsePacket(packet, parseForHostUniq, &hostUniq);
+    return !hostUniq.length;
 }
 
 /**********************************************************************
@@ -363,14 +354,10 @@ sendPADI(PPPoEConnection *conn)
     }
 
     /* If we're using Host-Uniq, copy it over */
-    if (conn->hostUniq) {
-	PPPoETag hostUniq;
-	int len = (int) strlen(conn->hostUniq);
-	hostUniq.type = htons(TAG_HOST_UNIQ);
-	hostUniq.length = htons(len);
-	memcpy(hostUniq.payload, conn->hostUniq, len);
+    if (conn->hostUniq.length) {
+	int len = ntohs(conn->hostUniq.length);
 	CHECK_ROOM(cursor, packet.payload, len + TAG_HDR_SIZE);
-	memcpy(cursor, &hostUniq, len + TAG_HDR_SIZE);
+	memcpy(cursor, &conn->hostUniq, len + TAG_HDR_SIZE);
 	cursor += len + TAG_HDR_SIZE;
 	plen += len + TAG_HDR_SIZE;
     }
@@ -575,14 +562,10 @@ sendPADR(PPPoEConnection *conn)
     cursor += namelen + TAG_HDR_SIZE;
 
     /* If we're using Host-Uniq, copy it over */
-    if (conn->hostUniq) {
-	PPPoETag hostUniq;
-	int len = (int) strlen(conn->hostUniq);
-	hostUniq.type = htons(TAG_HOST_UNIQ);
-	hostUniq.length = htons(len);
-	memcpy(hostUniq.payload, conn->hostUniq, len);
-	CHECK_ROOM(cursor, packet.payload, len + TAG_HDR_SIZE);
-	memcpy(cursor, &hostUniq, len + TAG_HDR_SIZE);
+    if (conn->hostUniq.length) {
+	int len = ntohs(conn->hostUniq.length);
+	CHECK_ROOM(cursor, packet.payload, len+TAG_HDR_SIZE);
+	memcpy(cursor, &conn->hostUniq, len + TAG_HDR_SIZE);
 	cursor += len + TAG_HDR_SIZE;
 	plen += len + TAG_HDR_SIZE;
     }

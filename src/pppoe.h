@@ -278,7 +278,7 @@ typedef struct PPPoEConnectionStruct {
     char *serviceName;		/* Desired service name, if any */
     char *acName;		/* Desired AC name, if any */
     int synchronous;		/* Use synchronous PPP */
-    char *hostUniq;		/* Host-Uniq tag, if any */
+    PPPoETag hostUniq;		/* Host-Uniq tag, if any; length=0 <=> none */
     int printACNames;		/* Just print AC names */
     int skipDiscovery;		/* Skip discovery */
     int noDiscoverySocket;	/* Don't even open discovery socket */
@@ -338,6 +338,7 @@ UINT16_t pppFCS16(UINT16_t fcs, unsigned char *cp, int len);
 void discovery(PPPoEConnection *conn);
 unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
 		       PPPoETag *tag);
+int parseHostUniq(const char *uniq, PPPoETag *tag);
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size);

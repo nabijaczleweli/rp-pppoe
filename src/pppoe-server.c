@@ -246,7 +246,6 @@ childHandler(pid_t pid, int status, void *s)
 #endif
 
     memset(&conn, 0, sizeof(conn));
-    conn.hostUniq = NULL;
 
     syslog(LOG_INFO,
 	   "Session %u closed for client "
@@ -1092,7 +1091,6 @@ processPADR(Interface *ethif, PPPoEPacket *packet, int len)
 
     if (hurl_string || motd_string) {
 	memset(&conn, 0, sizeof(conn));
-	conn.hostUniq = NULL;
 
 	memcpy(conn.myEth, cliSession->ethif->mac, ETH_ALEN);
 	conn.discoverySocket = sock;
@@ -2154,9 +2152,7 @@ PppoeStopSession(ClientSession *ses,
 {
     /* Temporary structure for sending PADT's. */
     PPPoEConnection conn;
-
     memset(&conn, 0, sizeof(conn));
-    conn.hostUniq = NULL;
 
     memcpy(conn.myEth, ses->ethif->mac, ETH_ALEN);
     conn.discoverySocket = ses->ethif->sock;

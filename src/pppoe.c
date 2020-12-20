@@ -374,7 +374,7 @@ usage(char const *argv0)
 	    "   -S name        -- Set desired service name.\n"
 	    "   -C name        -- Set desired access concentrator name.\n"
 	    "   -U             -- Use Host-Unique to allow multiple PPPoE sessions.\n"
-	    "   -W value       -- Use Host-Unique set to 'value' specifically.\n"
+	    "   -W value       -- Use Host-Unique set to 'value' as hex-string specifically.\n"
 	    "   -s             -- Use synchronous PPP encapsulation.\n"
 	    "   -m MSS         -- Clamp incoming and outgoing MSS options.\n"
 	    "   -p pidfile     -- Write process-ID to pidfile.\n"
@@ -528,24 +528,25 @@ main(int argc, char *argv[])
 	    conn.synchronous = 1;
 	    break;
 	case 'U':
-	    if (conn.hostUniq) {
+	    if (conn.hostUniq.length) {
 		fprintf(stderr, "-U and -W are mutually-exclusive and may only be used once.\n");
 		exit(EXIT_FAILURE);
 	    }
 	    /* Allows for a 64-bit PID */
-	    conn.hostUniq = malloc(17);
-	    if (!conn.hostUniq) {
-		fprintf(stderr, "Out of memory.\n");
-		exit(EXIT_FAILURE);
-	    }
-	    sprintf(conn.hostUniq, "%lx", (unsigned long) getpid());
+	    conn.hostUniq.type = htons(TAG_HOST_UNIQ);
+	    conn.hostUniq.length =
+		snprintf((char *) conn.hostUniq.payload, sizeof(conn.hostUniq.payload),
+		    "%lx", (unsigned long) getpid());
 	    break;
 	case 'W':
-	    if (conn.hostUniq) {
+	    if (conn.hostUniq.length) {
 		fprintf(stderr, "-U and -W are mutually-exclusive and may only be used once.\n");
 		exit(EXIT_FAILURE);
 	    }
-	    SET_STRING(conn.hostUniq, optarg);
+	    if (!parseHostUniq(optarg, &conn.hostUniq)) {
+		fprintf(stderr, "Invalid Host-Unique argument: %s\n", optarg);
+		exit(EXIT_FAILURE);
+            }
 	    break;
 #ifdef DEBUGGING_ENABLED
 	case 'D':

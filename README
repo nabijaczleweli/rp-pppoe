@@ -20,6 +20,10 @@ submitted in https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000579.html and r
 Patches in 0006-touchups-3.14-BETA-2-v1/ correspond to the upstream/3.14-BETA-2..touchups-3.14-BETA-2-v1 commits,
 submitted in https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000583.html and released in 3.14-BETA-3 (https://dianne.skoll.ca/pipermail/rp-pppoe/2020q2/000584.html).
 
+Log in 0007-pppd-features/ demonstrates the correspondence of pppoe-discovery and pppoe.
+
+Patches in 0008-nonbugfix-3.14/ correspond to the upstream/3.14..nonbugfix-3.14 commits.
+
 Based on a checkout of git://git.ozlabs.org/~paulus/ppp.git on 2020-05-02 16:32:05 +0200 at 41a73232c16e9a063cfe3fad461c94af3f450f6c.
 
 SHAs exported:

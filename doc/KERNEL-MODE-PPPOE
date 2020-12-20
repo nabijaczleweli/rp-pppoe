@@ -80,8 +80,7 @@ After that, pppoe-start should use kernel-mode PPPoE.
 
 The rp-pppoe.so plugin adds the following command-line options to pppd:
 
-ethXXX                          -- Use interface ethXXX as Ethernet interface
-brXXX                           -- Use interface brXXX as Ethernet interface
+XXX                             -- Use interface XXX as Ethernet interface
 nic-XXXX                        -- Use interface XXXX as the Ethernet interface
 
 rp_pppoe_service SERVICE_NAME   -- Specify desired service name

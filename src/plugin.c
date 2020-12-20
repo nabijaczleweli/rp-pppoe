@@ -380,16 +380,12 @@ PPPoEDevnameHook(char *cmd, char **argv, int doit)
 	return 0;
     }
 
-    /* Only do it if name is "ethXXX" or "brXXX" or what was specified
-       by rp_pppoe_dev option (ugh). */
-    /* Can also specify nic-XXXX in which case the nic- is stripped off. */
+    /* Take any otherwise-unrecognized option as a possible device name,
+       and test if it is the name of a network interface with a
+       hardware address whose sa_family is ARPHRD_ETHER.
+    */
     if (!strncmp(cmd, "nic-", 4)) {
 	cmd += 4;
-    } else {
-	if (strncmp(cmd, "eth", 3) &&
-	    strncmp(cmd, "br", 2)) {
-	    return 0;
-	}
     }
 
     /* Open a socket */

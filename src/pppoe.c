@@ -673,10 +673,10 @@ main(int argc, char *argv[])
 	exit(EXIT_SUCCESS);
     }
 
-    /* Set signal handlers: send PADT on HUP; ignore TERM and INT */
-    signal(SIGTERM, SIG_IGN);
-    signal(SIGINT, SIG_IGN);
-    signal(SIGHUP, sigPADT);
+    /* Set signal handlers: send PADT on HUP, TERM and INT */
+    signal(SIGTERM, sigPADT);
+    signal(SIGINT,  sigPADT);
+    signal(SIGHUP,  sigPADT);
     session(&conn);
     return 0;
 }

@@ -200,8 +200,8 @@ main(int argc, char *argv[])
 
 #endif
 
-    /* We assume interface is in promiscuous mode -- use ifconfig to
-       ensure this */
+    /* We assume interface is in promiscuous mode -- use "ip link
+       show" to ensure this */
     fprintf(stderr, "Sniffing for PADR.  Start your connection on another machine...\n");
     while (!SeenPADR) {
 	if (receivePacket(sock, &pkt, &size) < 0) continue;

@@ -29,7 +29,7 @@ exec_prefix=@exec_prefix@
 
 # Paths to programs
 CONNECT=@sbindir@/pppoe-connect
-IP=/sbin/ip
+IP=@IP@
 
 # Set to "C" locale so we can parse messages from commands
 LANG=C

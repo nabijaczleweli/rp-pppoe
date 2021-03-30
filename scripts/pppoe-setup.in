@@ -18,7 +18,7 @@ exec_prefix=@exec_prefix@
 
 # Paths to programs
 IFCONFIG=/sbin/ifconfig
-IP=/sbin/ip
+IP=@IP@
 PPPD=@PPPD@
 PPPOE=@sbindir@/pppoe
 LOGGER="/usr/bin/logger -t `basename $0`"

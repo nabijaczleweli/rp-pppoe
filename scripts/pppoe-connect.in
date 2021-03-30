@@ -28,7 +28,7 @@ exec_prefix=@exec_prefix@
 localstatedir=/var
 
 # Paths to programs
-IP=/sbin/ip
+IP=@IP@
 IFCONFIG=/sbin/ifconfig
 PPPD=@PPPD@
 SETSID=@SETSID@

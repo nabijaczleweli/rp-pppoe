@@ -22,7 +22,7 @@
 
 # Defaults
 CONFIG=/etc/ppp/pppoe.conf
-IP=/sbin/ip
+PATH=/bin:/usr/bin:/sbin:/usr/sbin:$PATH IP=`which ip`
 
 case "$#" in
     1)

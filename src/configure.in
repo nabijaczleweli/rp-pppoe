@@ -75,7 +75,7 @@ if test "$ac_cv_pluginpath" = "yes" ; then
 fi
 
 if test "$ac_cv_pluginpath" = "yes" ; then
-    echo "*** Could not fined pppd/pppd.h anywhere... not building plugin"
+    echo "*** Could not find pppd/pppd.h anywhere... not building plugin"
     ac_cv_pluginpath=no
 fi
 

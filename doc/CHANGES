@@ -2,7 +2,7 @@
 
 Changes from version 3.14 to 3.15:
 
-- Still in BETA!
+- Release 3.15 (2021-05-07)
 
 - src/pppoe.c: Don't ignore SIGTERM and SIGINT.  Send PADT and exit
   if one of those signals is received.
